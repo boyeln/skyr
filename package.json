@@ -1,0 +1,28 @@
+{
+	"name": "skyr",
+	"version": "0.2.0",
+	"type": "module",
+	"module": "dist/index.js",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": [
+		"dist",
+		"src",
+		"package.json",
+		"README.md",
+		"!**/*.test.ts"
+	],
+	"scripts": {
+		"package": "tsc",
+		"test": "bun test",
+		"check": "bun build ./src/index.ts --target=node --outfile=/dev/null",
+		"lint": "biome check .",
+		"format": "biome format --write .",
+		"format:check": "biome format ."
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.2.5",
+		"@types/bun": "latest",
+		"typescript": "5.9.3"
+	}
+}
