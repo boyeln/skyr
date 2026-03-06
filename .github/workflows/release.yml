@@ -60,10 +60,10 @@ jobs:
           "
 
       - name: Run tests
-        run: deno task test
+        run: deno test
 
       - name: Build npm package
-        run: deno task build:npm
+        run: deno run -A scripts/build_npm.ts
 
       - name: Publish to npm
         run: cd dist && npm publish --access public
