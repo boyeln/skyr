@@ -1,9 +1,10 @@
 /**
- * Shared implementation helpers for Result methods and standalone operators.
+ * Shared implementation helpers for methods and standalone operators.
  *
- * Both the methods on ok()/err() and the standalone operators (for pipe())
- * need the same transformation logic. This module provides the shared core
- * so behavior stays consistent and bugs only need fixing in one place.
+ * Both chainable methods (e.g. .map(), .inject()) and standalone operators
+ * (for pipe()) need the same transformation logic. This module provides
+ * the shared core so behavior stays consistent and bugs only need fixing
+ * in one place.
  *
  * @internal
  */
@@ -12,6 +13,7 @@ import { Panic } from "../panic.ts";
 import { unknownErr } from "./errors.ts";
 import { isResult, ok, type Result } from "../result.ts";
 import { asyncResult } from "../async_result.ts";
+import { createFn } from "../fn/fn.ts";
 
 /**
  * Core map logic: transform an Ok value, handling Result flattening,
@@ -118,4 +120,16 @@ export function handleInspect(
 		// Swallow — side effects never break the pipeline
 	}
 	return result;
+}
+
+/**
+ * Core inject logic: merge dependency implementations into an Fn,
+ * returning a new Fn with those dependencies satisfied.
+ */
+export function injectDeps(fn: any, impls: readonly any[]): any {
+	const newInjectedDeps = { ...fn._fn._injectedDeps };
+	for (const impl of impls) {
+		newInjectedDeps[impl.key] = impl.value;
+	}
+	return createFn(fn._fn._generator, newInjectedDeps);
 }

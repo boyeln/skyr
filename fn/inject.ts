@@ -1,6 +1,5 @@
 /** Dependency injection operator for use with `pipe()`. */
 
-import { createFn } from "./fn.ts";
 import type {
 	Dependency,
 	DependencyImpl,
@@ -8,6 +7,7 @@ import type {
 	ImplKeys,
 	RemoveDepsByKeys,
 } from "./types.ts";
+import { injectDeps } from "../_internal/handlers.ts";
 
 /**
  * Provides dependency implementations to an `Fn`. Use inside `pipe()`.
@@ -46,17 +46,5 @@ export const inject =
 		Errors,
 		RemoveDepsByKeys<Deps, ImplKeys<Impls>>
 	> => {
-		// Merge new implementations with existing ones
-		const newInjectedDeps = { ...fn._fn._injectedDeps };
-		for (const impl of impls) {
-			newInjectedDeps[impl.key] = impl.value;
-		}
-
-		type RemainingDeps = RemoveDepsByKeys<Deps, ImplKeys<Impls>>;
-
-		// Create new Fn with merged dependencies
-		return createFn<Args, Return, Errors, RemainingDeps>(
-			fn._fn._generator as any,
-			newInjectedDeps,
-		);
+		return injectDeps(fn, impls);
 	};

@@ -419,15 +419,12 @@ Key points:
 
 ### Injecting Dependencies
 
-Use `inject()` in a `pipe()` to provide implementations:
+Use `.inject()` to provide implementations:
 
 ```typescript
-const getUser = R.pipe(
-	GetUser,
-	R.inject(
-		Database.impl({ findUser: async (email) => db.query(email) }),
-		Logger.impl({ info: console.log }),
-	),
+const getUser = GetUser.inject(
+	Database.impl({ findUser: async (email) => db.query(email) }),
+	Logger.impl({ info: console.log }),
 );
 
 // Now callable — all dependencies satisfied
@@ -447,11 +444,23 @@ like `Missing dependency: "database". Use inject() to provide this dependency.`
 Injection can be done incrementally:
 
 ```typescript
-const withDb = R.pipe(GetUser, R.inject(Database.impl({/* ... */})));
+const withDb = GetUser.inject(Database.impl({/* ... */}));
 // Still needs Logger
 
-const getUser = R.pipe(withDb, R.inject(Logger.impl({/* ... */})));
+const getUser = withDb.inject(Logger.impl({/* ... */}));
 // Fully callable
+```
+
+The standalone `inject()` operator works the same way inside `pipe()`:
+
+```typescript
+const getUser = R.pipe(
+	GetUser,
+	R.inject(
+		Database.impl({ findUser: async (email) => db.query(email) }),
+		Logger.impl({ info: console.log }),
+	),
+);
 ```
 
 ### Nested Functions
@@ -558,7 +567,8 @@ operations (`.match()`, `.unwrap()`, `.unwrapOr()`) which return `Promise`.
 | `fn(func)`             | Unify Result return type                      |
 | `use(dep)`             | Acquire dependency inside a generator         |
 | `use(Fn)`              | Get contextualized callable for nested Fn     |
-| `inject(...impls)`     | Provide dependency implementations            |
+| `.inject(...impls)`    | Provide dependency implementations (method)   |
+| `inject(...impls)`     | Provide dependency implementations (operator) |
 
 ## License
 

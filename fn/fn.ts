@@ -17,6 +17,7 @@ import type {
 	UseRequest,
 	YieldedValue,
 } from "./types.ts";
+import { injectDeps } from "../_internal/handlers.ts";
 
 // ============================================================================
 // Type Guards
@@ -244,6 +245,9 @@ function createFn<
 
 	// Attach metadata
 	callable._fn = metadata;
+
+	// Builder method: .inject()
+	callable.inject = (...impls: any[]) => injectDeps(callable, impls);
 
 	// Make Fn iterable so `yield* use(SomeFn)` works in parent generators.
 	// This generator yields nothing and immediately returns the callable —

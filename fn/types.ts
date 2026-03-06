@@ -115,6 +115,11 @@ export type Fn<
 
 	readonly _fn: FnMetadata<Args, Return, Errors, Deps>;
 
+	/** Provides dependency implementations, returning a new Fn with those dependencies satisfied. */
+	inject<const Impls extends readonly DependencyImpl<any, string>[]>(
+		...impls: Impls
+	): Fn<Args, Return, Errors, RemoveDepsByKeys<Deps, ImplKeys<Impls>>>;
+
 	[Symbol.iterator](): Generator<
 		Fn<Args, Return, Errors, Deps>,
 		ContextualizedCallable<Args, Return, Errors>,
