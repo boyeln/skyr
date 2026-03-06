@@ -15,7 +15,7 @@ await build({
 	shims: {},
 	test: false,
 	compilerOptions: {
-		lib: ["ES2022", "DOM"],
+		lib: ["ESNext", "DOM"],
 	},
 	package: {
 		name: "skyr",
