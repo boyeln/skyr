@@ -1,0 +1,32 @@
+name: Metrics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  metrics:
+    name: Coverage & Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run metrics
+        run: deno run -A scripts/metrics.ts > metrics.md
+
+      - name: Post comment
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file metrics.md --edit-last --create-if-none
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
