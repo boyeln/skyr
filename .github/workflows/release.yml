@@ -67,6 +67,7 @@ jobs:
 
       - name: Publish to npm
         run: cd dist && npm publish --access public
+        continue-on-error: true
 
       - name: Publish to JSR
         run: deno publish --allow-dirty
