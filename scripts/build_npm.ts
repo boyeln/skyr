@@ -1,10 +1,9 @@
 import { build, emptyDir } from "@deno/dnt";
 
-const denoJson = JSON.parse(await Deno.readTextFile("./deno.json"));
-const version = denoJson.version;
+const version = (await Deno.readTextFile("./version.txt")).trim();
 
 if (!version) {
-	throw new Error("No version found in deno.json");
+	throw new Error("No version found in version.txt");
 }
 
 await emptyDir("./dist");
