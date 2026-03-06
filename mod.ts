@@ -1,3 +1,23 @@
+/**
+ * Type-safe error handling for TypeScript, inspired by Rust's `Result` type.
+ *
+ * See the {@link https://github.com/boyeln/skyr | README} for full documentation.
+ *
+ * @example
+ * ```ts
+ * import * as R from "skyr";
+ *
+ * const result = R.ok(42)
+ *   .map((n) => n * 2)
+ *   .match({
+ *     ok: (n) => `Got ${n}`,
+ *     err: (e) => `Error: ${e.code}`,
+ *   });
+ * ```
+ *
+ * @module
+ */
+
 // Core types and constructors
 export { err, isErr, isOk, isResult, ok } from "./result.ts";
 export type { Err, Ok, Result } from "./result.ts";

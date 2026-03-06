@@ -7,8 +7,13 @@ propagation, and optional dependency injection.
 ## Installation
 
 ```bash
-pnpm add skyr
-bun add skyr
+# npm / pnpm / yarn / bun
+npm install skyr
+
+# Deno (via JSR)
+deno add jsr:@boyeln/skyr
+
+# Deno (via npm)
 deno add npm:skyr
 ```
 

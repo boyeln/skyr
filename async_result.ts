@@ -4,8 +4,6 @@
  * All methods return AsyncResult (async poison), except terminal operations
  * (match, unwrap, unwrapOr) which return Promise. AsyncResult is PromiseLike —
  * await it to get back a sync Result with all its methods.
- *
- * @module
  */
 
 import type { Err, Result } from "./result.ts";
