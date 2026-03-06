@@ -2,6 +2,7 @@ import { describe, it } from "@std/testing/bdd";
 import { assertEquals } from "@std/assert";
 import { assertType, type IsExact } from "@std/testing/types";
 import {
+	dependency,
 	err,
 	fn,
 	fromThrowable,
@@ -11,6 +12,7 @@ import {
 	ok,
 	pipe,
 	type Result,
+	use,
 } from "../mod.ts";
 
 // ============================================================================
@@ -168,5 +170,105 @@ describe("fn() with generator functions", () => {
 
 		const result = await Promise.resolve(myFn());
 		if (isErr(result)) assertEquals(result.code, "NOPE");
+	});
+
+	it("handles a rejected promise as UNKNOWN_ERR", async () => {
+		const myFn = fn(function* () {
+			const value = yield* fromThrowable(
+				Promise.reject(new Error("boom")) as Promise<string>,
+			);
+			return ok(value);
+		});
+
+		const result = await myFn();
+		assertEquals(isErr(result), true);
+		if (isErr(result)) assertEquals(result.code, "UNKNOWN_ERR");
+	});
+
+	it("short-circuits on error after an async operation", async () => {
+		const log: string[] = [];
+
+		const myFn = fn(function* () {
+			log.push("before async");
+			const a = yield* fromThrowable(Promise.resolve(10));
+			log.push("after async");
+			yield* err("FAIL", "fail");
+			log.push("after err — should not reach");
+			return ok(a);
+		});
+
+		const result = await myFn();
+		assertEquals(isErr(result), true);
+		if (isErr(result)) assertEquals(result.code, "FAIL");
+		assertEquals(log, ["before async", "after async"]);
+	});
+
+	it("mixes sync and async yields in the same generator", async () => {
+		const myFn = fn(function* () {
+			const a = yield* ok(1);
+			const b = yield* fromThrowable(Promise.resolve(2));
+			const c = yield* ok(3);
+			return ok(a + b + c);
+		});
+
+		const result = await myFn();
+		assertEquals(isOk(result), true);
+		if (isOk(result)) assertEquals(result.value, 6);
+	});
+
+	it("composes async child fn with dependency via use()", async () => {
+		const Config = dependency<{ baseUrl: string }>()("config");
+
+		const FetchData = fn(function* (path: string) {
+			const config = yield* use(Config);
+			const data = yield* fromThrowable(
+				Promise.resolve(`${config.baseUrl}/${path}`),
+			);
+			return ok(data);
+		});
+
+		const Parent = fn(function* () {
+			const fetchData = yield* use(FetchData);
+			const a = yield* fetchData("users");
+			const b = yield* fetchData("posts");
+			return ok([a, b]);
+		});
+
+		const parent = pipe(
+			Parent,
+			inject(Config.impl({ baseUrl: "https://api.test" })),
+		);
+		const result = await parent();
+		assertEquals(isOk(result), true);
+		if (isOk(result)) {
+			assertEquals(result.value, [
+				"https://api.test/users",
+				"https://api.test/posts",
+			]);
+		}
+	});
+
+	it("propagates child fn error through use() in async context", async () => {
+		const Config = dependency<{ baseUrl: string }>()("config");
+
+		const ChildFn = fn(function* () {
+			const _config = yield* use(Config);
+			yield* fromThrowable(Promise.resolve("ok"));
+			return err("CHILD_ERR", "child failed");
+		});
+
+		const Parent = fn(function* () {
+			const childFn = yield* use(ChildFn);
+			const _value = yield* childFn();
+			return ok("should not reach");
+		});
+
+		const parent = pipe(
+			Parent,
+			inject(Config.impl({ baseUrl: "https://api.test" })),
+		);
+		const result = await parent();
+		assertEquals(isErr(result), true);
+		if (isErr(result)) assertEquals(result.code, "CHILD_ERR");
 	});
 });
