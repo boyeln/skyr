@@ -1,8 +1,3 @@
-/**
- * Core types for the dependency injection system.
- * @module
- */
-
 import type { Result } from "../result.ts";
 import type { InferFail } from "../_internal/types.ts";
 

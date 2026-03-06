@@ -1,9 +1,3 @@
-/**
- * Core Result types, constructors, and type guards.
- *
- * @module
- */
-
 import type {
 	HandlerErr,
 	HandlerOk,

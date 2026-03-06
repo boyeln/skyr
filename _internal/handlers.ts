@@ -5,7 +5,6 @@
  * need the same transformation logic. This module provides the shared core
  * so behavior stays consistent and bugs only need fixing in one place.
  *
- * @module
  * @internal
  */
 
