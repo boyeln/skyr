@@ -1,510 +1,559 @@
 # skyr
 
-> Skyr is a thick, protein-rich, and nutritious traditional Icelandic dairy
-> product.
-
-**skyr** is a lightweight TypeScript library for functional error handling with async support and optional dependency injection.
+Type-safe error handling for TypeScript, inspired by Rust's `Result` type.
+Method chaining, functional composition with `pipe()`, automatic async
+propagation, and optional dependency injection.
 
 ## Installation
 
 ```bash
-npm install skyr
-pnpm install skyr
-deno add npm:skyr
+pnpm add skyr
 bun add skyr
+deno add npm:skyr
 ```
 
-## Usage
+## Core Concepts
 
-### Basic Results
+### Results Instead of Exceptions
 
-A `Result` can either be **ok** or it can **fail**. When ok, the result contains
-a value of whatever type you need. When failed, it contains a `Failure` - a
-structured error with a `code`, `message`, and optional `cause` for debugging.
+A `Result<T, E>` is either **ok** (containing a value of type `T`) or an **err**
+(containing a structured error with a typed `code`, a `message`, and an optional
+`cause`). This replaces `try/catch` with values you can inspect, transform, and
+compose.
 
 ```typescript
-import { fail, ok } from "skyr";
+import * as R from "skyr";
 
-type User = { id: string; email: string; passwordHash: string };
-
-// Simple validation
 function validateEmail(email: string) {
-  if (!email.includes("@")) {
-    return fail("INVALID_EMAIL", "Email must contain @");
-  }
-  return ok(email);
-} // => Result<string, Failure<"INVALID_EMAIL">>
+	if (!email.includes("@")) {
+		return R.err("INVALID_EMAIL", "Email must contain @");
+	}
+	return R.ok(email);
+}
 
-// Check the result
 const result = validateEmail("user@example.com");
 
 if (result.isOk()) {
-  console.log("Valid email:", result.unwrap());
+	console.log(result.value); // "user@example.com"
 } else {
-  console.log("Error:", result.unwrap().message);
+	console.log(result.code); // "INVALID_EMAIL"
+	console.log(result.message); // "Email must contain @"
 }
 ```
 
-Use `.isOk()` and `.hasFailed()` to check which variant you have, then
-`.unwrap()` to extract the value or the failure.
+Error codes are string literals tracked by the type system. TypeScript knows
+exactly which errors a function can produce and autocompletes them for you.
 
-### Transforming Results
+Results are plain objects with a `_tag` discriminant:
 
-Transform ok values with `.map()`, which automatically skips if the result has
-failed.
+- `ok(value)` creates `{ _tag: "Ok", value, ... }`
+- `err(code, message, cause?)` creates
+  `{ _tag: "Err", code, message, cause, ... }`
+
+The `cause` field is `undefined` when not provided.
+
+Every Result comes with methods for transforming and inspecting it — type `.` in
+your IDE and see what's available.
+
+### Letting TypeScript Infer Result Types
+
+There's a subtlety with the example above. Without an explicit return type
+annotation, TypeScript infers the return type as
+`Result<string, never> | Result<never, "INVALID_EMAIL">` — a union of two
+separate Result types rather than a single unified
+`Result<string, "INVALID_EMAIL">`.
+
+You could fix this by adding a return type annotation, but it's generally safer
+to let TypeScript infer return types whenever possible — annotations can drift
+out of sync with the implementation and mask bugs.
+
+Instead, wrap the function with `fn()`:
 
 ```typescript
-function normalizeEmail(email: string) {
-  return email.toLowerCase().trim();
-}
+import * as R from "skyr";
 
-const result = validateEmail("User@Example.com")
-  .map(normalizeEmail)
-  .map((email) => `Welcome, ${email}!`); // Result<string, Failure<"INVALID_EMAIL">>
-
-// Pattern matching handles both cases
-const message = result.match({
-  ok: (greeting) => greeting,
-  failed: (error) => `Error: ${error.message}`,
+const validateEmail = R.fn((email: string) => {
+	if (!email.includes("@")) {
+		return R.err("INVALID_EMAIL", "Email must contain @");
+	}
+	return R.ok(email);
 });
-
-console.log(message);
+// (email: string) => Result<string, "INVALID_EMAIL">
 ```
 
-### Handling Specific Errors
+`fn()` collapses all the Result branches into a single, clean `Result<T, E>`
+type. No annotation needed — the ok value type and all possible error codes are
+inferred automatically.
 
-Use `.mapFailure()` with an object to handle specific error codes—perfect for
-recovery or transforming specific failures while letting others pass through.
+This is the simplest use of `fn()`. It also supports
+[generator functions for railway-style programming and dependency injection](#dependency-injection-with-fn),
+covered later.
 
-```typescript
-type AppError =
-  | Failure<"NOT_FOUND">
-  | Failure<"TIMEOUT">
-  | Failure<"AUTH_FAILED">;
+### Type Guards
 
-declare function fetchUser(id: string): Result<User, AppError>;
-
-const result = fetchUser("123").mapFailure({
-  // TypeScript autocompletes available codes: "NOT_FOUND", "TIMEOUT", "AUTH_FAILED"
-  "NOT_FOUND": () => ok(guestUser),                    // Recovery
-  "TIMEOUT": (err) => fail("RETRY")(err.message),      // Transform
-  // AUTH_FAILED not handled - passes through unchanged
-});
-// Result<User | GuestUser, Failure<"RETRY"> | Failure<"AUTH_FAILED">>
-```
-
-Each handler:
-- Gets autocomplete for available error codes
-- Receives the narrowed `Failure<"CODE">` type
-- Can return `ok(value)` for recovery or `fail(code)(message)` to transform
-- Unhandled codes automatically pass through
-
-This works with async results too:
+Results have `.isOk()` and `.isErr()` methods that act as type guards:
 
 ```typescript
-const result = await fetchUserAsync("123").mapFailure({
-  "NOT_FOUND": () => ok(guestUser),
-  "TIMEOUT": () => fromThrowable(retryFetch("123")),
-});
-```
-
-### Async Operations
-
-When you work with Promises, skyr automatically returns an `AsyncResult` - and
-it stays async until you await it.
-
-```typescript
-import { wrapThrowable } from "skyr";
-
-// Simulate database lookup (might throw or reject)
-async function findUserInDb(email: string) {
-  const user = await db.query("SELECT * FROM users WHERE email = ?", [email]);
-  if (!user) throw new Error("User not found");
-  return user;
-}
-
-// Wrap throwing async function to return Results
-const findUser = wrapThrowable(
-  findUserInDb,
-  (cause) => ({
-    code: "USER_NOT_FOUND",
-    message: "Unable to locate user",
-    cause,
-  }),
-); // => (email: string) => AsyncResult<User, Failure<"USER_NOT_FOUND">>
-
-// Chain async operations
-const userResult = validateEmail("user@example.com")
-  .map(normalizeEmail)
-  .map((email) => findUser(email)); // AsyncResult<User, Failure<"INVALID_EMAIL"> | Failure<"USER_NOT_FOUND">>
-
-// Await to get the Result
-const user = await userResult.unwrap();
-```
-
-`wrapThrowable()` wraps a function to catch any errors and convert them to
-Failures. Once a Result becomes async, it stays async—this is called "async
-poison".
-
-### Better Type Inference with `fn()`
-
-The `fn()` helper provides cleaner type inference for functions.
-
-```typescript
-import { fn } from "skyr";
-
-const validatePassword = fn((password: string) => {
-  if (password.length < 8) {
-    return fail("WEAK_PASSWORD", "Password must be at least 8 characters");
-  }
-  return ok(password);
-}); // (password: string) => Result<string, Failure<"WEAK_PASSWORD">>
-
-const result = validatePassword("secret"); // Result<string, Failure<"WEAK_PASSWORD">>
-```
-
-### Generator Syntax
-
-Generators let you write error-handling code that reads like regular code,
-automatically short-circuiting on failures.
-
-```typescript
-const checkPassword = fn((password: string, hash: string) => {
-  const isValid = password === hash; // Simplified
-  if (!isValid) {
-    return fail("INVALID_PASSWORD", "Password does not match");
-  }
-  return ok(true);
-});
-
-// Using generators with yield*
-const loginUser = fn(function* (email: string, password: string) {
-  // yield* unwraps ok values or short-circuits on fail
-  const validatedEmail = yield* validateEmail(email);
-  const normalizedEmail = normalizeEmail(validatedEmail);
-
-  // Async works seamlessly
-  const user = yield* findUser(normalizedEmail);
-
-  // If this fails, the whole function returns the failure
-  yield* checkPassword(password, user.passwordHash);
-
-  return ok(user);
-}); // Fn with dependencies that returns Result<User, Failure<"INVALID_EMAIL"> | ...>
-
-const result = await loginUser("user@example.com", "secret123");
-// Result<User, Failure<"INVALID_EMAIL"> | Failure<"USER_NOT_FOUND"> | Failure<"INVALID_PASSWORD">>
-
 if (result.isOk()) {
-  console.log("Logged in:", result.unwrap());
+	result.value; // T
 } else {
-  console.log("Login failed:", result.unwrap().message);
+	result.code; // E
+	result.message; // string
+	result.cause; // unknown | undefined
 }
 ```
 
-With `yield*`, you unwrap ok values automatically. If any operation fails, the
-entire function short-circuits and returns that failure—no nested `if`
-statements needed.
-
-### Composing Functions
-
-Yield other Result-returning functions and their errors propagate automatically.
+Standalone functions `isOk()`, `isErr()`, and `isResult()` are also available:
 
 ```typescript
-const createSession = fn(function* (user: User) {
-  const sessionId = crypto.randomUUID();
-  return ok({ sessionId, userId: user.id });
-});
-
-const loginUser = fn(function* (email: string, password: string) {
-  const validatedEmail = yield* validateEmail(email);
-  const normalizedEmail = yield* ok(normalizeEmail(validatedEmail));
-  const user = yield* findUser(normalizedEmail);
-
-  yield* checkPassword(password, user.passwordHash);
-  const session = yield* createSession(user);
-
-  return ok({ user, session });
-}); // All error types collected: Failure<"INVALID_EMAIL"> | Failure<"USER_NOT_FOUND"> | Failure<"INVALID_PASSWORD">
+R.isOk(result); // narrows to Ok<T>
+R.isErr(result); // narrows to Err<E>
+R.isResult(value); // checks if any unknown value is a Result
 ```
 
-### Dependency Injection
+`isResult(value)` checks whether any unknown value is a Result. A value is
+considered a Result if it's a non-null object with `_tag` equal to `"Ok"` or
+`"Err"`.
 
-Declare dependencies without implementing them yet—write complete business logic
-first.
+### Method Chaining
+
+Every Result has methods for transformation, error handling, and value
+extraction. Chain them directly — no imports or special syntax needed:
 
 ```typescript
-// Declare dependencies (just the types!)
-const Database = fn.dependency<{
-  findUser: (email: string) => Promise<User | null>;
-  createSession: (userId: string) => Promise<{ sessionId: string }>;
-}>()("database");
+const message = validateEmail("User@Example.com")
+	.map((email) => email.toLowerCase().trim())
+	.map((email) => `Welcome, ${email}!`)
+	.match({
+		ok: (greeting) => greeting,
+		err: (e) => `Error: ${e.message}`,
+	});
 
-const Logger = fn.dependency<{
-  info: (message: string) => void;
-  error: (message: string, error: unknown) => void;
-}>()("logger");
-
-// Use dependencies in your code
-const loginUser = fn(function* (email: string, password: string) {
-  // Get dependencies with yield* fn.require()
-  const db = yield* fn.require(Database);
-  const logger = yield* fn.require(Logger);
-
-  logger.info(`Login attempt for ${email}`);
-
-  const validatedEmail = yield* validateEmail(email);
-  const user = yield* fromThrowable(() => db.findUser(validatedEmail));
-
-  if (!user) {
-    logger.error("User not found", { email });
-    return fail("USER_NOT_FOUND", "No user found");
-  }
-
-  yield* checkPassword(password, user.passwordHash);
-
-  const session = yield* fromThrowable(() => db.createSession(user.id));
-
-  logger.info(`User ${user.id} logged in`);
-
-  return ok({ user, session });
-}); // Note: loginUser requires Database and Logger dependencies
+console.log(message); // "Welcome, user@example.com!"
 ```
 
-The code is complete and type-safe, but we haven't implemented `Database` or
-`Logger` yet.
+Methods skip over errors automatically — if `validateEmail` returns an error,
+the `.map()` calls are never executed, and the error flows straight to
+`.match()`.
 
-### Type-Safe Dependency Tracking
+### Async Propagation
 
-TypeScript tracks which dependencies are required and prevents calling functions
-until all are provided.
+When any step returns a `Promise`, the result becomes an `AsyncResult` — a
+wrapper around `Promise<Result>` with the same methods. This is called **async
+poison** — once async, always async (until you `await`).
 
 ```typescript
-// Compiler error: missing dependencies
-const result = loginUser("user@example.com", "password");
-//            ^^^^^^^^^ Type error!
+const result = validateEmail("user@example.com") // Result<string, ...>
+	.map((email) => fetchUser(email)) // returns Promise → AsyncResult
+	.map((user) => user.name); // still async, still chainable
+// Type: AsyncResult<string, ...>
 
-// Must inject dependencies first
-const runLogin = loginUser
-  .inject(
-    Database.impl({
-      findUser: async (email) => {/* real implementation */},
-      createSession: async (userId) => {/* real implementation */},
-    }),
-    Logger.impl({
-      info: (msg) => console.log(msg),
-      error: (msg, err) => console.error(msg, err),
-    }),
-  ); // runLogin now requires no dependencies
-
-// Now callable
-const result = await runLogin("user@example.com", "password");
+const finalResult = await result;
+// Type: Result<string, ...> — back to sync, methods available again
 ```
 
-Partial injection works too:
+`AsyncResult` is `PromiseLike`, so you can `await` it to get back a sync
+`Result` with all its methods.
+
+### Functional Composition with `pipe()`
+
+For those who prefer a functional style, `pipe()` threads a value through a
+sequence of functions left-to-right. All methods are also available as
+standalone operators:
 
 ```typescript
-const partialLogin = loginUser.inject(
-  Database.impl({/* ... */}),
-); // partialLogin still requires: Logger
+import * as R from "skyr";
 
-const fullLogin = partialLogin.inject(
-  Logger.impl({/* ... */}),
-); // fullLogin requires: (none)
-
-await fullLogin("user@example.com", "password"); // ✓
-```
-
-### Different Implementations
-
-Swap implementations for testing, development, and production.
-
-```typescript
-// Production
-const productionDb = Database.impl({
-  findUser: async (email) => {
-    const result = await pool.query("SELECT * FROM users WHERE email = $1", [
-      email,
-    ]);
-    return result.rows[0] || null;
-  },
-  createSession: async (userId) => {
-    const sessionId = crypto.randomUUID();
-    await pool.query("INSERT INTO sessions (id, user_id) VALUES ($1, $2)", [
-      sessionId,
-      userId,
-    ]);
-    return { sessionId };
-  },
-});
-
-const productionLogger = Logger.impl({
-  info: (msg) => winston.info(msg),
-  error: (msg, err) => winston.error(msg, { error: err }),
-});
-
-// Testing (mocks)
-const testDb = Database.impl({
-  findUser: async (email) => {
-    if (email === "test@example.com") {
-      return { id: "test-123", email, passwordHash: "hashed" };
-    }
-    return null;
-  },
-  createSession: async () => ({ sessionId: "test-session" }),
-});
-
-const testLogger = Logger.impl({
-  info: () => {}, // Silent in tests
-  error: () => {},
-});
-
-// Use in production
-const prodLogin = loginUser.inject(productionDb, productionLogger);
-
-// Use in tests
-const testLogin = loginUser.inject(testDb, testLogger);
-
-// Same code, different implementations
-```
-
-### Nested Dependencies
-
-Functions can call other functions with dependencies, and those dependencies
-propagate automatically.
-
-```typescript
-const RateLimiter = fn.dependency<{
-  checkLimit: (email: string) => Promise<boolean>;
-}>()("rateLimiter");
-
-// This function has its own dependency
-const checkRateLimit = fn(function* (email: string) {
-  const limiter = yield* fn.require(RateLimiter);
-  const allowed = yield* fromThrowable(() => limiter.checkLimit(email));
-
-  if (!allowed) {
-    return fail("RATE_LIMITED", "Too many login attempts");
-  }
-
-  return ok(true);
-}); // Requires: RateLimiter
-
-// Call functions with dependencies using .yield()
-const loginUser = fn(function* (email: string, password: string) {
-  const db = yield* fn.require(Database);
-  const logger = yield* fn.require(Logger);
-
-  yield* checkRateLimit.yield(email);
-
-  // ... rest of login logic
-
-  return ok({ user, session });
-}); // Requires: Database, Logger, RateLimiter (inherited from checkRateLimit)
-
-const runLogin = loginUser.inject(
-  Database.impl({/* ... */}),
-  Logger.impl({/* ... */}),
-  RateLimiter.impl({/* ... */}), // Required!
+const message = R.pipe(
+	validateEmail("User@Example.com"),
+	R.map((email) => email.toLowerCase().trim()),
+	R.map((email) => `Welcome, ${email}!`),
+	R.match({
+		ok: (greeting) => greeting,
+		err: (e) => `Error: ${e.message}`,
+	}),
 );
 ```
 
-Use `.yield()` to call functions with dependencies. Dependencies automatically
-propagate to parent functions and are tracked in the type system.
+Standalone operators accept both `Result` and `Promise<Result>` as input and
+propagate async automatically — they work interchangeably with both styles.
 
-## Testing
+### Panics: Catching Programmer Errors
 
-Inject mocks without any mocking libraries.
+Callbacks passed to `map`, `mapErr`, and `match` are expected to be pure
+transformation functions. If a callback **throws synchronously**, that's a
+programmer error — a bug, not a domain error. skyr wraps these in a `Panic`
+error to make them instantly recognizable:
 
 ```typescript
-import { test, expect } from "bun:test";
-
-test("loginUser - successful login", async () => {
-  const mockDb = Database.impl({
-    findUser: async () => ({
-      id: "123",
-      email: "test@example.com",
-      passwordHash: "hash",
-    }),
-    createSession: async () => ({ sessionId: "session-123" }),
-  });
-
-  const mockLogger = Logger.impl({ info: () => {}, error: () => {} });
-
-  const login = loginUser.inject(mockDb, mockLogger);
-  const result = await login("test@example.com", "password");
-
-  expect(result.isOk()).toBe(true);
+R.ok(42).map(() => {
+	throw new Error("oops");
 });
-
-test("loginUser - user not found", async () => {
-  const mockDb = Database.impl({
-    findUser: async () => null,
-    createSession: async () => ({ sessionId: "session-123" }),
-  });
-
-  const mockLogger = Logger.impl({ info: () => {}, error: () => {} });
-
-  const login = loginUser.inject(mockDb, mockLogger);
-  const result = await login("test@example.com", "password");
-
-  expect(result.hasFailed()).toBe(true);
-  if (result.hasFailed()) {
-    expect(result.unwrap().code).toBe("USER_NOT_FOUND");
-  }
-});
+// Throws: Panic("map() callback threw — use fromThrowable() for unsafe code")
+//   cause: Error("oops")
 ```
+
+`Panic` extends `Error`, so you get a full stack trace. Catch it at the top
+level with `instanceof R.Panic` if needed.
+
+**Promise rejections** are different — they represent the outside world failing
+(network errors, etc.) and are captured as `UNKNOWN_ERR` results, not Panics.
+
+If your callback calls code that might throw, wrap it with `fromThrowable()` to
+convert it into a Result safely.
+
+## Methods
+
+Every `Result` has the following methods. `AsyncResult` has the same methods,
+but they always return `AsyncResult` (or `Promise` for terminal operations).
+
+### `.map(fn)`
+
+Transforms the ok value. Skips if the result is an error.
+
+```typescript
+R.ok(5)
+	.map((n) => n * 2)
+	.map((n) => `Value: ${n}`);
+// Result<string, never> → Ok("Value: 10")
+```
+
+If `fn` returns a `Result`, it's automatically flattened (no nested Results). If
+it returns a `Promise`, the result becomes an `AsyncResult` — the Promise is
+automatically handled like `fromThrowable`: resolved values become ok, rejected
+Promises become `UNKNOWN_ERR`.
+
+### `.mapErr(fn | handlers)`
+
+Transforms or recovers from errors. Has two forms:
+
+**Function form** — transform all errors:
+
+```typescript
+R.err("NOT_FOUND", "User not found")
+	.mapErr((e) => R.err("DEFAULT_ERROR", e.message));
+// Result<never, "DEFAULT_ERROR">
+```
+
+**Handler object** — handle specific error codes with autocomplete:
+
+```typescript
+type AppError = "NOT_FOUND" | "TIMEOUT" | "AUTH_FAILED";
+
+declare function fetchUser(id: string): R.Result<User, AppError>;
+
+const result = fetchUser("123").mapErr({
+	NOT_FOUND: () => R.ok(guestUser), // recover with ok()
+	TIMEOUT: () => defaultUser, // recover with plain value (same as ok())
+	// AUTH_FAILED not listed → passes through unchanged
+});
+// Result<User, "AUTH_FAILED">
+```
+
+Handlers get autocomplete for the available error codes. Each handler receives
+the narrowed `Err<"CODE">` and can:
+
+- Return `ok(value)` or a **plain value** to recover (both treated as success)
+- Return `err(code, message)` to transform the error
+
+Unhandled codes pass through unchanged.
+
+### `.match({ ok, err })`
+
+Pattern match both cases and leave the Result world:
+
+```typescript
+const label = R.ok(42).match({
+	ok: (n) => `Got ${n}`,
+	err: (e) => `Error: ${e.code}`,
+});
+// "Got 42"
+```
+
+If either handler returns a `Result`, the output is a `Result`. Otherwise it's a
+plain value. On `AsyncResult`, `.match()` returns a `Promise`.
+
+### `.inspect(fn)` / `.inspectErr(fn)`
+
+Run side effects (logging, metrics) without changing the Result:
+
+```typescript
+validateEmail("user@example.com")
+	.inspect((email) => console.log("Valid:", email))
+	.inspectErr((e) => console.error("Failed:", e.code))
+	.map((email) => email.toLowerCase());
+```
+
+The callback's return value is ignored — the original Result is always returned
+unchanged. If the callback throws or the returned Promise rejects, the error is
+silently swallowed and the original Result passes through. Side effects should
+never break the pipeline.
+
+### `.unwrap()` / `.unwrapOr(default)`
+
+Extract values from Results:
+
+```typescript
+// unwrap() extracts the ok value, or returns undefined on error
+const value = R.ok(42).map((n) => n * 2).unwrap();
+// number | undefined → 84
+
+const missing = R.err("NOT_FOUND", "gone").unwrap();
+// undefined
+
+// Works great with optional chaining
+fetchUser("123").unwrap()?.name;
+
+// Or non-null assertion when you know it's Ok
+R.ok(42).unwrap()!;
+
+// unwrapOr() extracts the ok value, or returns the default on error
+const fallback = R.err("ERROR", "Something went wrong").unwrapOr(0);
+// 0
+```
+
+On `AsyncResult`, `.unwrap()` returns `Promise<T | undefined>` and
+`.unwrapOr(default)` returns `Promise<T | D>`.
+
+## Converting Throwing Code
+
+### `fromThrowable(fn | promise, mapper?)`
+
+Convert code that throws (or Promises that reject) into Results:
+
+```typescript
+// Wrap a function call
+const result = R.fromThrowable(
+	() => JSON.parse('{"name": "Alice"}'),
+	(err) => R.err("PARSE_ERROR", "Invalid JSON", err),
+);
+// Result<any, "PARSE_ERROR">
+
+// Wrap a Promise
+const response = await R.fromThrowable(
+	fetch("https://api.example.com"),
+	(err) => R.err("FETCH_ERROR", "Request failed", err),
+);
+// Result<Response, "FETCH_ERROR">
+```
+
+Without a mapper, errors become `"UNKNOWN_ERR"`.
+
+The function overload calls the function synchronously and catches any thrown
+error. If you have a Promise, use the Promise overload directly.
+
+### `wrapThrowable(fn, mapper?)`
+
+Like `fromThrowable`, but returns a reusable wrapper function:
+
+```typescript
+const safeParse = R.wrapThrowable(
+	(str: string) => JSON.parse(str),
+	(err) => R.err("PARSE_ERROR", "Invalid JSON", err),
+);
+
+safeParse('{"valid": true}'); // Ok({valid: true})
+safeParse("nope"); // Err("PARSE_ERROR")
+```
+
+## Dependency Injection with `fn()`
+
+For larger applications, `fn()` accepts a generator function to enable
+railway-style programming with dependency injection. Inside the generator,
+`yield*` unwraps Results (short-circuiting on failure) and `yield* R.use(Dep)`
+acquires dependencies. Dependencies are tracked by the type system and must be
+injected before the function can be called.
+
+Both `ok()` and `err()` are iterable, which is what makes `yield*` work for
+Result unwrapping in generators.
+
+### Declaring Dependencies
+
+```typescript
+const Database = R.dependency<{
+	findUser: (email: string) => Promise<User | null>;
+}>()("database");
+
+const Logger = R.dependency<{
+	info: (msg: string) => void;
+}>()("logger");
+```
+
+> **Convention:** Dependencies and functions that still need injection use
+> PascalCase. After injection, use camelCase to signal "ready to call."
+
+### Creating Functions
+
+Use `fn()` with a generator. Inside, `yield*` unwraps Results (short-circuiting
+on failure) and `yield* R.use(Dep)` acquires dependencies:
+
+```typescript
+const GetUser = R.fn(function* (email: string) {
+	const db = yield* R.use(Database);
+	const logger = yield* R.use(Logger);
+
+	logger.info(`Looking up ${email}`);
+
+	const validEmail = yield* validateEmail(email);
+	const user = yield* R.fromThrowable(db.findUser(validEmail));
+
+	if (!user) return R.err("NOT_FOUND", "User not found");
+
+	return R.ok(user);
+});
+// Type: Fn<[string], User, "INVALID_EMAIL" | "NOT_FOUND" | "UNKNOWN_ERR", Database | Logger>
+```
+
+Key points:
+
+- `yield* R.use(Database)` — acquires a dependency from the DI context
+- `yield* validateEmail(email)` — unwraps a Result; short-circuits on failure
+- `yield* R.fromThrowable(...)` — unwraps an async Result
+- Error types accumulate automatically across all `yield*` calls
+- Dependency types accumulate automatically across all `yield* R.use()` calls
+
+### Injecting Dependencies
+
+Use `inject()` in a `pipe()` to provide implementations:
+
+```typescript
+const getUser = R.pipe(
+	GetUser,
+	R.inject(
+		Database.impl({ findUser: async (email) => db.query(email) }),
+		Logger.impl({ info: console.log }),
+	),
+);
+
+// Now callable — all dependencies satisfied
+const result = await getUser("user@example.com");
+```
+
+If you try to call a function before all dependencies are injected, TypeScript
+shows an error:
+
+```
+ERROR - Missing dependencies: database, logger. Use inject() first.
+```
+
+At runtime, calling with missing dependencies throws an `Error` with a message
+like `Missing dependency: "database". Use inject() to provide this dependency.`
+
+Injection can be done incrementally:
+
+```typescript
+const withDb = R.pipe(GetUser, R.inject(Database.impl({/* ... */})));
+// Still needs Logger
+
+const getUser = R.pipe(withDb, R.inject(Logger.impl({/* ... */})));
+// Fully callable
+```
+
+### Nested Functions
+
+When one `fn()` uses another via `yield* R.use(ChildFn)`, the child's
+dependencies are inherited by the parent:
+
+```typescript
+const CheckPermissions = R.fn(function* (userId: string) {
+	const db = yield* R.use(Database);
+	// ...
+	return R.ok(canAccess);
+});
+
+const LoginUser = R.fn(function* (email: string, password: string) {
+	const logger = yield* R.use(Logger);
+
+	const user = yield* getUser(email);
+
+	const checkPerms = yield* R.use(CheckPermissions);
+	const canAccess = yield* checkPerms(user.id);
+
+	return R.ok(user);
+});
+// Dependencies: Logger | Database (Database inherited from CheckPermissions)
+```
+
+The two-step pattern — `yield* R.use(Fn)` then `yield* callable(args)` —
+separates dependency resolution from execution, keeping the control flow
+explicit.
 
 ## API Reference
 
-### Core Functions
+### Constructors
 
-```typescript
-ok(value)                    // Create ok result
-fail(code, message, cause?)  // Create failed result
-fromThrowable(fn, mapper?)   // Convert throwing code to Result
-wrapThrowable(fn, mapper?)   // Wrap function to return Results
+| Function                     | Description                       |
+| ---------------------------- | --------------------------------- |
+| `ok(value)`                  | Create an Ok result with methods  |
+| `err(code, message, cause?)` | Create an Err result with methods |
 
-result.map(fn)                        // Transform ok value
-result.mapFailure(fn)                 // Transform failure
-result.mapFailure({ CODE: handler })  // Handle specific error codes
-result.match({ ok, failed })          // Pattern match both cases
-result.unwrap()              // Get value or failure
-result.unwrapOr(default)     // Get value or default
-result.isOk()                // Check if ok
-result.hasFailed()           // Check if failed
-```
+### Type Guards
 
-### Generator Functions
+| Function / Method | Description                                    |
+| ----------------- | ---------------------------------------------- |
+| `.isOk()`         | Narrow to `Ok<T>` (method)                     |
+| `.isErr()`        | Narrow to `Err<E>` (method)                    |
+| `isOk(result)`    | Narrow to `Ok<T>` (standalone)                 |
+| `isErr(result)`   | Narrow to `Err<E>` (standalone)                |
+| `isResult(value)` | Check if value has `_tag` of `"Ok"` or `"Err"` |
 
-```typescript
-const myFn = fn(function* (arg) {
-  const value = yield* someResult; // Unwrap or short-circuit
-  return ok(result);
-});
+### Methods on Result
 
-myFn(arg); // Call (if no dependencies)
-myFn.run(arg); // Explicit run
-```
+| Method                       | Description                                       |
+| ---------------------------- | ------------------------------------------------- |
+| `.map(fn)`                   | Transform ok value; Panics on sync throw          |
+| `.mapErr(fn)`                | Transform error; plain values treated as recovery |
+| `.mapErr({ CODE: handler })` | Handle specific error codes; Panics on sync throw |
+| `.match({ ok, err })`        | Pattern match both cases; Panics on sync throw    |
+| `.inspect(fn)`               | Side effect on ok; errors silently swallowed      |
+| `.inspectErr(fn)`            | Side effect on error; errors silently swallowed   |
+| `.unwrap()`                  | Extract ok value or return `undefined`            |
+| `.unwrapOr(default)`         | Extract ok value or return default                |
+
+### AsyncResult
+
+`AsyncResult<T, E>` wraps a `Promise<Result<T, E>>` and exposes the same methods
+as `Result`. All methods return `AsyncResult` (async poison), except terminal
+operations (`.match()`, `.unwrap()`, `.unwrapOr()`) which return `Promise`.
+`AsyncResult` is `PromiseLike` — `await` it to get a sync `Result`.
+
+### Standalone Operators (for `pipe()`)
+
+| Operator                    | Description                                       |
+| --------------------------- | ------------------------------------------------- |
+| `map(fn)`                   | Transform ok value; Panics on sync throw          |
+| `mapErr(fn)`                | Transform error; plain values treated as recovery |
+| `mapErr({ CODE: handler })` | Handle specific error codes; Panics on sync throw |
+| `match({ ok, err })`        | Pattern match both cases; Panics on sync throw    |
+| `inspect(fn)`               | Side effect on ok; errors silently swallowed      |
+| `inspectErr(fn)`            | Side effect on error; errors silently swallowed   |
+| `unwrap`                    | Extract ok value or return `undefined`            |
+| `unwrapOr(default)`         | Extract ok value or return default                |
+
+### Converters
+
+| Function                          | Description                         |
+| --------------------------------- | ----------------------------------- |
+| `fromThrowable(fn, mapper?)`      | Convert throwing function to Result |
+| `fromThrowable(promise, mapper?)` | Convert Promise to async Result     |
+| `wrapThrowable(fn, mapper?)`      | Wrap function to return Results     |
+
+### Errors
+
+| Type    | Description                                                 |
+| ------- | ----------------------------------------------------------- |
+| `Panic` | Thrown on sync throw in operator callbacks; extends `Error` |
 
 ### Dependency Injection
 
-```typescript
-// Declare
-const Service = fn.dependency<Type>()("key");
-
-// Require
-const service = yield * fn.require(Service);
-
-// Implement
-const impl = Service.impl({/* implementation */});
-
-// Inject
-const runnable = myFn.inject(impl1, impl2);
-
-// Compose
-yield * childFn.yield(args);
-```
+| Function               | Description                                   |
+| ---------------------- | --------------------------------------------- |
+| `dependency<T>()(key)` | Declare a dependency type                     |
+| `fn(generator)`        | Create function with DI and Result unwrapping |
+| `fn(func)`             | Unify Result return type                      |
+| `use(dep)`             | Acquire dependency inside a generator         |
+| `use(Fn)`              | Get contextualized callable for nested Fn     |
+| `inject(...impls)`     | Provide dependency implementations            |
 
 ## License
 
