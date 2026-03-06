@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -26,7 +27,7 @@ jobs:
   publish:
     name: Publish
     needs: release
-    if: needs.release.outputs.release_created
+    if: needs.release.outputs.release_created || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: main
 
@@ -48,6 +49,15 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
+
+      - name: Sync version to deno.json
+        run: |
+          VERSION=$(cat version.txt | tr -d '[:space:]')
+          deno eval "
+            const config = JSON.parse(await Deno.readTextFile('deno.json'));
+            config.version = '$VERSION';
+            await Deno.writeTextFile('deno.json', JSON.stringify(config, null, '\t') + '\n');
+          "
 
       - name: Run tests
         run: deno task test
