@@ -87,6 +87,60 @@ describe("inject()", () => {
 	});
 });
 
+describe("Fn.inject() builder method", () => {
+	const Database = dependency<{ query: (sql: string) => string }>()("db");
+	const Logger = dependency<{ info: (msg: string) => void }>()("logger");
+
+	it("provides dependency implementations via builder method", async () => {
+		const MyFn = fn(function* () {
+			const db = yield* use(Database);
+			return ok(db.query("SELECT 1"));
+		});
+
+		const myFn = MyFn.inject(
+			Database.impl({ query: (sql) => `result: ${sql}` }),
+		);
+
+		const result = await Promise.resolve(myFn());
+		assertEquals(result.unwrap(), "result: SELECT 1");
+	});
+
+	it("supports incremental injection via chaining", async () => {
+		const MyFn = fn(function* () {
+			const db = yield* use(Database);
+			const _logger = yield* use(Logger);
+			return ok(db.query("SELECT 1"));
+		});
+
+		const myFn = MyFn
+			.inject(Database.impl({ query: () => "done" }))
+			.inject(Logger.impl({ info: () => {} }));
+
+		const result = await Promise.resolve(myFn());
+		assertEquals(result.unwrap(), "done");
+	});
+
+	it("can mix builder .inject() with pipe(inject())", async () => {
+		const MyFn = fn(function* () {
+			const db = yield* use(Database);
+			const _logger = yield* use(Logger);
+			return ok(db.query("SELECT 1"));
+		});
+
+		const withDb = MyFn.inject(
+			Database.impl({ query: () => "mixed" }),
+		);
+
+		const myFn = pipe(
+			withDb,
+			inject(Logger.impl({ info: () => {} })),
+		);
+
+		const result = await Promise.resolve(myFn());
+		assertEquals(result.unwrap(), "mixed");
+	});
+});
+
 describe("nested fn() with use()", () => {
 	const Database = dependency<{ query: (sql: string) => string }>()("db");
 	const Logger = dependency<{ info: (msg: string) => void }>()("logger");
