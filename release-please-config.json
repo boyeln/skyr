@@ -1,7 +1,14 @@
 {
 	"packages": {
 		".": {
-			"release-type": "simple"
+			"release-type": "simple",
+			"extra-files": [
+				{
+					"type": "json",
+					"path": "deno.json",
+					"jsonpath": "$.version"
+				}
+			]
 		}
 	}
 }
