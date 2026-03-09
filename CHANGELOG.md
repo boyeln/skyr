@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/boyeln/skyr/compare/v1.1.0...v1.1.1) (2026-03-09)
+
+
+### Bug Fixes
+
+* clean up readme and code comments ([#16](https://github.com/boyeln/skyr/issues/16)) ([9a190db](https://github.com/boyeln/skyr/commit/9a190dbb9f113133dbaaff25ecc3b74e9055e4f3))
+
 ## [1.1.0](https://github.com/boyeln/skyr/compare/v1.0.0...v1.1.0) (2026-03-06)
 
 
