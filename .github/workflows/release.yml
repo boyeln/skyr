@@ -44,17 +44,8 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Sync version to deno.json
-        run: |
-          VERSION=$(cat version.txt | tr -d '[:space:]')
-          deno eval "
-            const config = JSON.parse(await Deno.readTextFile('deno.json'));
-            config.version = '$VERSION';
-            await Deno.writeTextFile('deno.json', JSON.stringify(config, null, '\t') + '\n');
-          "
-
       - name: Run tests
         run: deno test
 
       - name: Publish to JSR
-        run: deno publish --allow-dirty
+        run: deno publish
