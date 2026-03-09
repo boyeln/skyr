@@ -7,14 +7,16 @@ propagation, and optional dependency injection.
 ## Installation
 
 ```bash
-# npm / pnpm / yarn / bun
-npm install skyr
-
-# Deno (via JSR)
-deno add jsr:@boyeln/skyr
-
-# Deno (via npm)
-deno add npm:skyr
+# Deno
+deno add jsr:@thefridge/skyr
+# Bun
+bunx jsr add @thefridge/skyr
+# pnpm
+pnpm add jsr:@thefridge/skyr
+# npm
+npx jsr add @thefridge/skyr
+# Yarn
+yarn add jsr:@thefridge/skyr
 ```
 
 ## Core Concepts
@@ -27,7 +29,7 @@ A `Result<T, E>` is either **ok** (containing a value of type `T`) or an **err**
 compose.
 
 ```typescript
-import * as R from "skyr";
+import * as R from "@thefridge/skyr";
 
 function validateEmail(email: string) {
 	if (!email.includes("@")) {
@@ -75,7 +77,7 @@ out of sync with the implementation and mask bugs.
 Instead, wrap the function with `fn()`:
 
 ```typescript
-import * as R from "skyr";
+import * as R from "@thefridge/skyr";
 
 const validateEmail = R.fn((email: string) => {
 	if (!email.includes("@")) {
@@ -166,7 +168,7 @@ sequence of functions left-to-right. All methods are also available as
 standalone operators:
 
 ```typescript
-import * as R from "skyr";
+import * as R from "@thefridge/skyr";
 
 const message = R.pipe(
 	validateEmail("User@Example.com"),

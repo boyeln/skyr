@@ -44,12 +44,6 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
-
       - name: Sync version to deno.json
         run: |
           VERSION=$(cat version.txt | tr -d '[:space:]')
@@ -61,12 +55,6 @@ jobs:
 
       - name: Run tests
         run: deno test
-
-      - name: Build npm package
-        run: deno run -A scripts/build_npm.ts
-
-      - name: Publish to npm
-        run: cd dist && npm publish --access public
 
       - name: Publish to JSR
         run: deno publish --allow-dirty
