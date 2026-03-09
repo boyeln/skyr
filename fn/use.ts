@@ -11,8 +11,8 @@ import type {
 /**
  * Acquires a dependency or nested Fn inside a generator function.
  *
- * - `yield* R.use(Database)` — returns the dependency value
- * - `yield* R.use(ChildFn)` — returns a contextualized callable that inherits
+ * - `yield* R.use(Database)` returns the dependency value
+ * - `yield* R.use(ChildFn)` returns a contextualized callable that inherits
  *   the parent's dependency context
  *
  * For unwrapping Results, use plain `yield*` instead (no `use()` needed).

@@ -55,9 +55,9 @@ export type Err<C extends string> = {
  * transformations, error handling, and value extraction.
  */
 export interface ResultMethods<T, E extends string> {
-	/** Type guard — narrows to Ok with methods preserved. */
+	/** Type guard. Narrows to Ok with methods preserved. */
 	isOk(): this is Ok<T> & ResultMethods<T, E>;
-	/** Type guard — narrows to Err with methods preserved. */
+	/** Type guard. Narrows to Err with methods preserved. */
 	isErr(): this is Err<E> & ResultMethods<T, E>;
 
 	// -- map overloads (most specific first) --

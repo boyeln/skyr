@@ -51,10 +51,10 @@ function resolveDependency(
 }
 
 // ============================================================================
-// Generator Execution — Shared Helpers
+// Generator Execution - Shared Helpers
 // ============================================================================
 
-/** Handle a UseRequest — resolves dependencies or creates contextualized callables. */
+/** Handle a UseRequest. Resolves dependencies or creates contextualized callables. */
 function handleUseRequest(
 	request: UseRequest,
 	gen: Generator<YieldedValue, any, any>,
@@ -69,7 +69,7 @@ function handleUseRequest(
 		return resolveDependency(depRequest, deps, gen);
 	}
 
-	// type === "fn" — create contextualized callable
+	// type === "fn", create contextualized callable
 	const target = request.target;
 	const contextualizedCallable: ContextualizedCallable<any, any, any> = (
 		...callArgs: any[]
@@ -134,7 +134,7 @@ function runGenerator(
 		if (isResult(yielded)) {
 			if (isErr(yielded)) return yielded;
 
-			// Ok with Promise value — transition to async
+			// Ok with Promise value, transition to async
 			if (isOk(yielded) && yielded.value instanceof Promise) {
 				return asyncResult(
 					runGeneratorAsync(gen, yielded.value, deps),
@@ -145,7 +145,7 @@ function runGenerator(
 			continue;
 		}
 
-		// Bare Promise — transition to async
+		// Bare Promise, transition to async
 		if (yielded instanceof Promise) {
 			return asyncResult(runGeneratorAsync(gen, yielded, deps));
 		}
@@ -227,7 +227,7 @@ function createFn<
 	// The callable and metadata use `any` extensively because TypeScript can't
 	// express the relationship between generator yield types, dependency resolution,
 	// and the final callable signature. The public type safety comes from the Fn<>
-	// type wrapper and the fn() overload signatures — this internal plumbing is
+	// type wrapper and the fn() overload signatures. This internal plumbing is
 	// invisible to consumers.
 	const callable: any = (...args: Args) => {
 		const output = runGenerator(
@@ -250,7 +250,7 @@ function createFn<
 	callable.inject = (...impls: any[]) => injectDeps(callable, impls);
 
 	// Make Fn iterable so `yield* use(SomeFn)` works in parent generators.
-	// This generator yields nothing and immediately returns the callable —
+	// This generator yields nothing and immediately returns the callable.
 	// `yield*` on a generator that only returns (no yields) evaluates to the
 	// return value, so `const f = yield* use(Fn)` gives back the callable.
 	// deno-lint-ignore require-yield
@@ -272,7 +272,7 @@ function createFn<
 /**
  * Creates a function with optional dependency injection and Result unwrapping.
  *
- * **Regular function** — collapses Result return type branches into a single
+ * **Regular function** collapses Result return type branches into a single
  * `Result<T, E>` (no annotation needed):
  * ```ts
  * const divide = R.fn((a: number, b: number) =>
@@ -281,7 +281,7 @@ function createFn<
  * // (a: number, b: number) => Result<number, "DIV_ZERO">
  * ```
  *
- * **Generator function** — enables `yield*` for Result unwrapping (short-circuits
+ * **Generator function** enables `yield*` for Result unwrapping (short-circuits
  * on error) and `yield* R.use(Dep)` for dependency injection:
  * ```ts
  * const GetUser = R.fn(function* (email: string) {
@@ -299,7 +299,7 @@ function createFn<
 
 // Detect generator functions via their constructor (immune to minification).
 // This uses `instanceof`, which assumes the generator is from the same realm
-// (same global context) as this module. Safe in practice — users always write
+// (same global context) as this module. Safe in practice; users always write
 // `fn(function* () { ... })` inline, never across iframes or VM contexts.
 const GeneratorFunction = (function* () {}).constructor;
 
@@ -340,9 +340,9 @@ export function fn(
 
 	// Regular function: return as-is. The type overload handles
 	// collapsing Result<T, never> | Result<never, E> into Result<T, E>.
-	// No Fn wrapper needed — no generators, no DI, no runtime overhead.
+	// No Fn wrapper needed. No generators, no DI, no runtime overhead.
 	return funcOrGenerator;
 }
 
-// Used by inject.ts — not re-exported from mod.ts
+// Used by inject.ts, not re-exported from mod.ts
 export { createFn };

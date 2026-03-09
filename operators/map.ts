@@ -45,7 +45,7 @@ type MapOperator = <R extends AnyResult, U>(
  * Transforms the ok value. Skips if the result is an error.
  *
  * If `fn` returns a Result, it's automatically flattened (no nesting).
- * If `fn` returns a Promise, the pipeline becomes async — resolved values
+ * If `fn` returns a Promise, the pipeline becomes async. Resolved values
  * become ok, rejections become `UNKNOWN_ERR`.
  *
  * Throws {@link Panic} if `fn` throws synchronously.

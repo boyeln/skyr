@@ -118,12 +118,12 @@ type MapErrOperator = {
 /**
  * Transforms or recovers from errors. Has two forms:
  *
- * **Function form** — transform all errors:
+ * **Function form** transforms all errors:
  * ```ts
  * R.mapErr(e => R.err("DEFAULT_ERROR", e.message))
  * ```
  *
- * **Handler object** — handle specific error codes (with autocomplete):
+ * **Handler object** handles specific error codes (with autocomplete):
  * ```ts
  * R.mapErr({
  *   NOT_FOUND: () => R.ok(guestUser),   // recover with ok()

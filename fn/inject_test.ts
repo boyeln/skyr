@@ -77,7 +77,7 @@ describe("inject()", () => {
 			return ok("done");
 		});
 
-		// Force call without injection — bypass type system
+		// Force call without injection - bypass type system
 		const uninjected = MyFn as unknown as () => unknown;
 		assertThrows(
 			() => uninjected(),

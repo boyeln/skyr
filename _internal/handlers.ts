@@ -117,7 +117,7 @@ export function handleInspect(
 			);
 		}
 	} catch {
-		// Swallow — side effects never break the pipeline
+		// Swallow; side effects never break the pipeline
 	}
 	return result;
 }

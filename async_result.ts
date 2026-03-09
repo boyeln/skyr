@@ -1,8 +1,8 @@
 /**
- * AsyncResult — a Promise<Result<T, E>> with chainable methods.
+ * AsyncResult: a Promise<Result<T, E>> with chainable methods.
  *
  * All methods return AsyncResult (async poison), except terminal operations
- * (match, unwrap, unwrapOr) which return Promise. AsyncResult is PromiseLike —
+ * (match, unwrap, unwrapOr) which return Promise. AsyncResult is PromiseLike -
  * await it to get back a sync Result with all its methods.
  */
 
@@ -24,7 +24,7 @@ import type {
  * All methods return `AsyncResult` (async poison). Terminal operations
  * (`match`, `unwrap`, `unwrapOr`) return `Promise`.
  *
- * Implements `PromiseLike` — `await` it to get back a sync `Result`.
+ * Implements `PromiseLike`; `await` it to get back a sync `Result`.
  */
 export type AsyncResult<T, E extends string> = PromiseLike<Result<T, E>> & {
 	// map overloads (most specific first)
