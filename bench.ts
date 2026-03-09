@@ -13,7 +13,7 @@ Deno.bench("err()", () => {
 });
 
 // ============================================================================
-// Pipe flow — validate, transform, recover, extract
+// Pipe flow: validate, transform, recover, extract
 // ============================================================================
 
 const processOrder = (rawAmount: string) =>
@@ -44,11 +44,11 @@ const processOrder = (rawAmount: string) =>
 		}),
 	);
 
-Deno.bench("pipe — ok path", () => {
+Deno.bench("pipe: ok path", () => {
 	processOrder("49.99");
 });
 
-Deno.bench("pipe — err path", () => {
+Deno.bench("pipe: err path", () => {
 	processOrder("-10");
 });
 
@@ -82,11 +82,11 @@ const processOrderChained = (rawAmount: string) =>
 			err: (e) => `Error: ${e.message}`,
 		});
 
-Deno.bench("chain — ok path", () => {
+Deno.bench("chain: ok path", () => {
 	processOrderChained("49.99");
 });
 
-Deno.bench("chain — err path", () => {
+Deno.bench("chain: err path", () => {
 	processOrderChained("-10");
 });
 
@@ -152,14 +152,14 @@ const loggerImpl = Logger.impl({ info: noop });
 
 const getUser = R.pipe(GetUser, R.inject(dbImpl, loggerImpl));
 
-Deno.bench("fn() — DI wiring", () => {
+Deno.bench("fn(): DI wiring", () => {
 	R.pipe(GetUser, R.inject(dbImpl, loggerImpl));
 });
 
-Deno.bench("fn() — ok path", async () => {
+Deno.bench("fn(): ok path", async () => {
 	await getUser("admin@test.com");
 });
 
-Deno.bench("fn() — err path", async () => {
+Deno.bench("fn(): err path", async () => {
 	await getUser("invalid-email");
 });

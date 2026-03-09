@@ -25,7 +25,7 @@ type UnwrapOperator = <R extends AnyResult>(
  *
  * With `Promise<Result>` input, returns `Promise<T | undefined>`.
  *
- * Note: `unwrap` is a value (not a function call) — use it without parentheses.
+ * Note: `unwrap` is a value, not a function call. Use it without parentheses.
  */
 export const unwrap: UnwrapOperator = (result: AnyResult): any => {
 	const handle = (r: Result<any, any>) => {

@@ -57,19 +57,19 @@ Results are plain objects with a `_tag` discriminant:
 
 The `cause` field is `undefined` when not provided.
 
-Every Result comes with methods for transforming and inspecting it — type `.` in
+Every Result comes with methods for transforming and inspecting it. Type `.` in
 your IDE and see what's available.
 
 ### Letting TypeScript Infer Result Types
 
 There's a subtlety with the example above. Without an explicit return type
 annotation, TypeScript infers the return type as
-`Result<string, never> | Result<never, "INVALID_EMAIL">` — a union of two
+`Result<string, never> | Result<never, "INVALID_EMAIL">`, a union of two
 separate Result types rather than a single unified
 `Result<string, "INVALID_EMAIL">`.
 
 You could fix this by adding a return type annotation, but it's generally safer
-to let TypeScript infer return types whenever possible — annotations can drift
+to let TypeScript infer return types whenever possible. Annotations can drift
 out of sync with the implementation and mask bugs.
 
 Instead, wrap the function with `fn()`:
@@ -87,7 +87,7 @@ const validateEmail = R.fn((email: string) => {
 ```
 
 `fn()` collapses all the Result branches into a single, clean `Result<T, E>`
-type. No annotation needed — the ok value type and all possible error codes are
+type. No annotation needed; the ok value type and all possible error codes are
 inferred automatically.
 
 This is the simplest use of `fn()`. It also supports
@@ -123,7 +123,7 @@ considered a Result if it's a non-null object with `_tag` equal to `"Ok"` or
 ### Method Chaining
 
 Every Result has methods for transformation, error handling, and value
-extraction. Chain them directly — no imports or special syntax needed:
+extraction. Chain them directly, no imports or special syntax needed:
 
 ```typescript
 const message = validateEmail("User@Example.com")
@@ -137,15 +137,14 @@ const message = validateEmail("User@Example.com")
 console.log(message); // "Welcome, user@example.com!"
 ```
 
-Methods skip over errors automatically — if `validateEmail` returns an error,
-the `.map()` calls are never executed, and the error flows straight to
-`.match()`.
+Methods skip over errors automatically. If `validateEmail` returns an error, the
+`.map()` calls are never executed and the error flows straight to `.match()`.
 
 ### Async Propagation
 
-When any step returns a `Promise`, the result becomes an `AsyncResult` — a
+When any step returns a `Promise`, the result becomes an `AsyncResult`, a
 wrapper around `Promise<Result>` with the same methods. This is called **async
-poison** — once async, always async (until you `await`).
+poison**: once async, always async (until you `await`).
 
 ```typescript
 const result = validateEmail("user@example.com") // Result<string, ...>
@@ -154,7 +153,7 @@ const result = validateEmail("user@example.com") // Result<string, ...>
 // Type: AsyncResult<string, ...>
 
 const finalResult = await result;
-// Type: Result<string, ...> — back to sync, methods available again
+// Type: Result<string, ...> (back to sync)
 ```
 
 `AsyncResult` is `PromiseLike`, so you can `await` it to get back a sync
@@ -181,14 +180,16 @@ const message = R.pipe(
 ```
 
 Standalone operators accept both `Result` and `Promise<Result>` as input and
-propagate async automatically — they work interchangeably with both styles.
+propagate async automatically and work interchangeably with both styles.
 
-### Panics: Catching Programmer Errors
+### Panics: Unexpected Throws
 
-Callbacks passed to `map`, `mapErr`, and `match` are expected to be pure
-transformation functions. If a callback **throws synchronously**, that's a
-programmer error — a bug, not a domain error. skyr wraps these in a `Panic`
-error to make them instantly recognizable:
+If your code calls something that might throw or reject, or you're unsure
+whether it could, wrap it with `fromThrowable()` to convert it into a Result
+safely. This is the recommended approach for any code you don't fully control.
+
+If a callback passed to `map`, `mapErr`, or `match` throws synchronously without
+being wrapped, a `Panic` is thrown, halting execution immediately unless caught:
 
 ```typescript
 R.ok(42).map(() => {
@@ -201,11 +202,12 @@ R.ok(42).map(() => {
 `Panic` extends `Error`, so you get a full stack trace. Catch it at the top
 level with `instanceof R.Panic` if needed.
 
-**Promise rejections** are different — they represent the outside world failing
-(network errors, etc.) and are captured as `UNKNOWN_ERR` results, not Panics.
-
-If your callback calls code that might throw, wrap it with `fromThrowable()` to
-convert it into a Result safely.
+**Async functions** (Promises) returned from callbacks are automatically wrapped
+with `fromThrowable` implicitly, so rejections become `UNKNOWN_ERR` results
+instead of Panics. However, if you use multiple async functions, all their
+errors will share the same `UNKNOWN_ERR` code, making it impossible to
+distinguish between them. Wrapping each one with `fromThrowable` and a dedicated
+error code is the recommended approach.
 
 ## Methods
 
@@ -224,7 +226,7 @@ R.ok(5)
 ```
 
 If `fn` returns a `Result`, it's automatically flattened (no nested Results). If
-it returns a `Promise`, the result becomes an `AsyncResult` — the Promise is
+it returns a `Promise`, the result becomes an `AsyncResult`. The Promise is
 automatically handled like `fromThrowable`: resolved values become ok, rejected
 Promises become `UNKNOWN_ERR`.
 
@@ -232,7 +234,7 @@ Promises become `UNKNOWN_ERR`.
 
 Transforms or recovers from errors. Has two forms:
 
-**Function form** — transform all errors:
+**Function form** - transform all errors:
 
 ```typescript
 R.err("NOT_FOUND", "User not found")
@@ -240,7 +242,7 @@ R.err("NOT_FOUND", "User not found")
 // Result<never, "DEFAULT_ERROR">
 ```
 
-**Handler object** — handle specific error codes with autocomplete:
+**Handler object** - handle specific error codes with autocomplete:
 
 ```typescript
 type AppError = "NOT_FOUND" | "TIMEOUT" | "AUTH_FAILED";
@@ -289,7 +291,7 @@ validateEmail("user@example.com")
 	.map((email) => email.toLowerCase());
 ```
 
-The callback's return value is ignored — the original Result is always returned
+The callback's return value is ignored; the original Result is always returned
 unchanged. If the callback throws or the returned Promise rejects, the error is
 silently swallowed and the original Result passes through. Side effects should
 never break the pipeline.
@@ -363,14 +365,33 @@ safeParse("nope"); // Err("PARSE_ERROR")
 
 ## Dependency Injection with `fn()`
 
-For larger applications, `fn()` accepts a generator function to enable
-railway-style programming with dependency injection. Inside the generator,
-`yield*` unwraps Results (short-circuiting on failure) and `yield* R.use(Dep)`
-acquires dependencies. Dependencies are tracked by the type system and must be
-injected before the function can be called.
+`fn()` is a function builder. You pass it a generator and get back a function
+you can call just like any other. The difference is that inside the generator
+you get two superpowers:
 
-Both `ok()` and `err()` are iterable, which is what makes `yield*` work for
-Result unwrapping in generators.
+1. **Dependency requests** - `yield* R.use(Dep)` gives you an implementation of
+   a dependency without worrying about how to acquire it. Think of it like a
+   function parameter, except you don't have to pass it in at the call site.
+   When one `fn()` function calls another, unmet dependencies propagate up
+   automatically, no prop drilling required. You can also choose to supply some
+   dependencies but not all, and the rest keep propagating.
+
+2. **Result unwrapping** - `yield* someResult` extracts the success value from
+   any `Result` or `AsyncResult`. If it's an error, the function short-circuits
+   (early return) and the error propagates to the caller, just like the
+   non-generator version (`fn(() => ...)`).
+
+The return type of an `fn()` function is `Fn<Args, Success, Errors, Deps>`:
+
+- **Args** - the parameter list of your generator (e.g. `(email: string)` →
+  `[string]`)
+- **Success** - the unwrapped success type
+- **Errors** - a union of all error codes, accumulated from every `yield*` call
+- **Deps** - a union of all unmet dependencies, accumulated from every
+  `yield* R.use()` call
+
+The `Fn` you get back is only callable once all dependencies are injected (via
+`.inject()`), at which point the `Deps` part of the type becomes `never`.
 
 ### Declaring Dependencies
 
@@ -388,9 +409,6 @@ const Logger = R.dependency<{
 > PascalCase. After injection, use camelCase to signal "ready to call."
 
 ### Creating Functions
-
-Use `fn()` with a generator. Inside, `yield*` unwraps Results (short-circuiting
-on failure) and `yield* R.use(Dep)` acquires dependencies:
 
 ```typescript
 const GetUser = R.fn(function* (email: string) {
@@ -411,9 +429,10 @@ const GetUser = R.fn(function* (email: string) {
 
 Key points:
 
-- `yield* R.use(Database)` — acquires a dependency from the DI context
-- `yield* validateEmail(email)` — unwraps a Result; short-circuits on failure
-- `yield* R.fromThrowable(...)` — unwraps an async Result
+- `yield* R.use(Database)` - acquires a dependency from the DI context
+- `yield* validateEmail(email)` - unwraps a Result; short-circuits on failure
+- `yield* R.fromThrowable(...)` - catches throws/rejections, converting them to
+  a Result, then unwraps it
 - Error types accumulate automatically across all `yield*` calls
 - Dependency types accumulate automatically across all `yield* R.use()` calls
 
@@ -427,7 +446,7 @@ const getUser = GetUser.inject(
 	Logger.impl({ info: console.log }),
 );
 
-// Now callable — all dependencies satisfied
+// All dependencies satisfied, now callable
 const result = await getUser("user@example.com");
 ```
 
@@ -488,9 +507,8 @@ const LoginUser = R.fn(function* (email: string, password: string) {
 // Dependencies: Logger | Database (Database inherited from CheckPermissions)
 ```
 
-The two-step pattern — `yield* R.use(Fn)` then `yield* callable(args)` —
-separates dependency resolution from execution, keeping the control flow
-explicit.
+The two-step pattern, `yield* R.use(Fn)` then `yield* callable(args)`, separates
+dependency resolution from execution, keeping the control flow explicit.
 
 ## API Reference
 
@@ -529,7 +547,7 @@ explicit.
 `AsyncResult<T, E>` wraps a `Promise<Result<T, E>>` and exposes the same methods
 as `Result`. All methods return `AsyncResult` (async poison), except terminal
 operations (`.match()`, `.unwrap()`, `.unwrapOr()`) which return `Promise`.
-`AsyncResult` is `PromiseLike` — `await` it to get a sync `Result`.
+`AsyncResult` is `PromiseLike`; `await` it to get a sync `Result`.
 
 ### Standalone Operators (for `pipe()`)
 

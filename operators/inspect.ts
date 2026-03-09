@@ -38,7 +38,7 @@ type InspectOperator = <R extends AnyResult, U>(
  * Runs a side effect on the ok value without changing the Result.
  *
  * The callback's return value is ignored. If the callback throws or
- * returns a rejected Promise, the error is silently swallowed — side
+ * returns a rejected Promise, the error is silently swallowed. Side
  * effects never break the pipeline.
  *
  * @example

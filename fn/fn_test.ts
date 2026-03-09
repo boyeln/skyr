@@ -16,7 +16,7 @@ import {
 } from "../mod.ts";
 
 // ============================================================================
-// fn() — Simple function wrapping
+// fn() - Simple function wrapping
 // ============================================================================
 
 describe("fn() with regular functions", () => {
@@ -51,7 +51,7 @@ describe("fn() with regular functions", () => {
 });
 
 // ============================================================================
-// fn() — Generator functions with yield*
+// fn() - Generator functions with yield*
 // ============================================================================
 
 describe("fn() with generator functions", () => {
@@ -126,9 +126,9 @@ describe("fn() with generator functions", () => {
 			const a = yield* ok(1);
 			log.push("after first");
 			yield* err("STOP", "stopped");
-			log.push("after err — should not reach");
+			log.push("after err - should not reach");
 			const _b = yield* ok(2);
-			log.push("after second — should not reach");
+			log.push("after second - should not reach");
 			return ok(a);
 		});
 
@@ -157,7 +157,7 @@ describe("fn() with generator functions", () => {
 			return ok(x + y);
 		});
 
-		// No pipe(add, inject()) needed — no deps means directly callable
+		// No pipe(add, inject()) needed - no deps means directly callable
 		const result = await Promise.resolve(add(3, 4));
 		if (isOk(result)) assertEquals(result.value, 7);
 	});
@@ -193,7 +193,7 @@ describe("fn() with generator functions", () => {
 			const a = yield* fromThrowable(Promise.resolve(10));
 			log.push("after async");
 			yield* err("FAIL", "fail");
-			log.push("after err — should not reach");
+			log.push("after err - should not reach");
 			return ok(a);
 		});
 
