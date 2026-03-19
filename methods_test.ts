@@ -26,7 +26,7 @@ describe("Result.isOk() method", () => {
 	it("narrows type in if/else", () => {
 		const result: Result<number, "ERR"> = ok(42);
 		if (result.isOk()) {
-			assertEquals(result.value, 42);
+			assertEquals(result.ok, 42);
 		} else {
 			// Should not reach here
 			throw new Error("Expected Ok");
@@ -46,8 +46,8 @@ describe("Result.isErr() method", () => {
 	it("narrows type in if/else", () => {
 		const result: Result<number, "ERR"> = err("ERR", "oops");
 		if (result.isErr()) {
-			assertEquals(result.code, "ERR");
-			assertEquals(result.message, "oops");
+			assertEquals(result.err.code, "ERR");
+			assertEquals(result.err.message, "oops");
 		} else {
 			throw new Error("Expected Err");
 		}
@@ -62,14 +62,14 @@ describe("Result.map() method", () => {
 	it("transforms the ok value", () => {
 		const result = ok(5).map((n) => n * 2);
 		assertEquals(isOk(result), true);
-		if (isOk(result)) assertEquals(result.value, 10);
+		if (isOk(result)) assertEquals(result.ok, 10);
 	});
 
 	it("chains multiple maps", () => {
 		const result = ok(5)
 			.map((n) => n * 2)
 			.map((n) => `Value: ${n}`);
-		if (isOk(result)) assertEquals(result.value, "Value: 10");
+		if (isOk(result)) assertEquals(result.ok, "Value: 10");
 	});
 
 	it("skips on Err", () => {
@@ -81,13 +81,13 @@ describe("Result.map() method", () => {
 	it("flattens when fn returns a Result", () => {
 		const result = ok(5).map((n) => ok(n * 2));
 		// Should be Result<number, never>, not Result<Result<number, never>, never>
-		if (isOk(result)) assertEquals(result.value, 10);
+		if (isOk(result)) assertEquals(result.ok, 10);
 	});
 
 	it("flattens when fn returns an Err", () => {
 		const result = ok(5).map((_n) => err("BAD", "nope"));
 		assertEquals(result._tag, "Err");
-		if (result.isErr()) assertEquals(result.code, "BAD");
+		if (result.isErr()) assertEquals(result.err.code, "BAD");
 	});
 
 	it("returns AsyncResult when fn returns Promise", async () => {
@@ -95,14 +95,14 @@ describe("Result.map() method", () => {
 		// Should be AsyncResult
 		assertInstanceOf(result, Promise);
 		const resolved = await result;
-		if (isOk(resolved)) assertEquals(resolved.value, 10);
+		if (isOk(resolved)) assertEquals(resolved.ok, 10);
 	});
 
 	it("returns AsyncResult with UNKNOWN_ERR on rejected Promise", async () => {
 		const result = ok(5).map((_n) => Promise.reject(new Error("fail")));
 		const resolved = await result;
 		assertEquals(resolved._tag, "Err");
-		if (resolved.isErr()) assertEquals(resolved.code, "UNKNOWN_ERR");
+		if (resolved.isErr()) assertEquals(resolved.err.code, "UNKNOWN_ERR");
 	});
 
 	it("throws Panic on sync throw", () => {
@@ -133,26 +133,26 @@ describe("Result.mapErr() method", () => {
 		const result = err("OLD", "old msg")
 			.mapErr((e) => err("NEW", e.message));
 		if (result.isErr()) {
-			assertEquals(result.code, "NEW");
-			assertEquals(result.message, "old msg");
+			assertEquals(result.err.code, "NEW");
+			assertEquals(result.err.message, "old msg");
 		}
 	});
 
 	it("recovers with plain value", () => {
 		const result: Result<number, "ERR"> = err("ERR", "oops");
 		const recovered = result.mapErr((_e) => 42);
-		if (isOk(recovered)) assertEquals(recovered.value, 42);
+		if (isOk(recovered)) assertEquals(recovered.ok, 42);
 	});
 
 	it("recovers with ok()", () => {
 		const result: Result<number, "ERR"> = err("ERR", "oops");
 		const recovered = result.mapErr((_e) => ok(42));
-		if (isOk(recovered)) assertEquals(recovered.value, 42);
+		if (isOk(recovered)) assertEquals(recovered.ok, 42);
 	});
 
 	it("skips on Ok", () => {
 		const result = ok(42).mapErr((_e) => err("X", "x"));
-		if (isOk(result)) assertEquals(result.value, 42);
+		if (isOk(result)) assertEquals(result.ok, 42);
 	});
 
 	it("handles specific error codes with handler object", () => {
@@ -163,7 +163,7 @@ describe("Result.mapErr() method", () => {
 		const handled = result.mapErr({
 			NOT_FOUND: () => ok("default"),
 		});
-		if (isOk(handled)) assertEquals(handled.value, "default");
+		if (isOk(handled)) assertEquals(handled.ok, "default");
 	});
 
 	it("passes through unhandled error codes", () => {
@@ -175,7 +175,7 @@ describe("Result.mapErr() method", () => {
 			NOT_FOUND: () => ok("default"),
 		});
 		assertEquals(handled._tag, "Err");
-		if (handled.isErr()) assertEquals(handled.code, "TIMEOUT");
+		if (handled.isErr()) assertEquals(handled.err.code, "TIMEOUT");
 	});
 
 	it("handler recovers with plain value", () => {
@@ -183,7 +183,7 @@ describe("Result.mapErr() method", () => {
 		const handled = result.mapErr({
 			NOT_FOUND: () => "fallback",
 		});
-		if (isOk(handled)) assertEquals(handled.value, "fallback");
+		if (isOk(handled)) assertEquals(handled.ok, "fallback");
 	});
 
 	it("throws Panic on sync throw in handler", () => {
@@ -202,14 +202,14 @@ describe("Result.mapErr() method", () => {
 		const result: Result<number, "ERR"> = err("ERR", "oops");
 		const asyncR = result.mapErr(() => Promise.resolve(ok(99)));
 		const resolved = await asyncR;
-		if (isOk(resolved)) assertEquals(resolved.value, 99);
+		if (isOk(resolved)) assertEquals(resolved.ok, 99);
 	});
 
 	it("captures rejected Promise in function handler as UNKNOWN_ERR", async () => {
 		const result: Result<number, "ERR"> = err("ERR", "oops");
 		const asyncR = result.mapErr(() => Promise.reject(new Error("boom")));
 		const resolved = await asyncR;
-		if (resolved.isErr()) assertEquals(resolved.code, "UNKNOWN_ERR");
+		if (resolved.isErr()) assertEquals(resolved.err.code, "UNKNOWN_ERR");
 	});
 
 	it("handler object with async handler on sync Result produces AsyncResult", async () => {
@@ -218,7 +218,7 @@ describe("Result.mapErr() method", () => {
 			ERR: () => Promise.resolve(ok(99)),
 		});
 		const resolved = await asyncR;
-		if (isOk(resolved)) assertEquals(resolved.value, 99);
+		if (isOk(resolved)) assertEquals(resolved.ok, 99);
 	});
 
 	it("handler object with async handler on AsyncResult", async () => {
@@ -231,7 +231,7 @@ describe("Result.mapErr() method", () => {
 			.mapErr({
 				NOT_FOUND: () => ok("recovered"),
 			});
-		if (isOk(result)) assertEquals(result.value, "recovered");
+		if (isOk(result)) assertEquals(result.ok, "recovered");
 	});
 });
 
@@ -271,7 +271,7 @@ describe("Result.match() method", () => {
 			ok: (n) => ok(String(n)),
 			err: (e) => err("MAPPED", e.message),
 		});
-		if (isOk(matched)) assertEquals(matched.value, "42");
+		if (isOk(matched)) assertEquals(matched.ok, "42");
 	});
 
 	it("throws Panic on sync throw", () => {
@@ -301,7 +301,7 @@ describe("Result.inspect() method", () => {
 			seen = n;
 		});
 		assertEquals(seen, 42);
-		if (isOk(result)) assertEquals(result.value, 42);
+		if (isOk(result)) assertEquals(result.ok, 42);
 	});
 
 	it("skips on Err", () => {
@@ -323,14 +323,14 @@ describe("Result.inspect() method", () => {
 			throw new Error("oops");
 		};
 		const result = ok(42).inspect(() => thrower());
-		if (isOk(result)) assertEquals(result.value, 42);
+		if (isOk(result)) assertEquals(result.ok, 42);
 	});
 
 	it("returns AsyncResult when callback returns Promise", async () => {
 		const asyncR = ok(42).inspect(() => Promise.resolve());
 		assertInstanceOf(asyncR, Promise);
 		const result = await ok(42).inspect(() => Promise.resolve());
-		if (isOk(result)) assertEquals(result.value, 42);
+		if (isOk(result)) assertEquals(result.ok, 42);
 	});
 });
 
@@ -404,7 +404,7 @@ describe("AsyncResult", () => {
 		const result = await ok(5)
 			.map((n) => Promise.resolve(n * 2))
 			.map((n) => n + 1);
-		if (isOk(result)) assertEquals(result.value, 11);
+		if (isOk(result)) assertEquals(result.ok, 11);
 	});
 
 	it("chains multiple .map() calls", async () => {
@@ -412,7 +412,7 @@ describe("AsyncResult", () => {
 			.map((s) => Promise.resolve(s.toUpperCase()))
 			.map((s) => s + "!")
 			.map((s) => s.length);
-		if (isOk(result)) assertEquals(result.value, 6);
+		if (isOk(result)) assertEquals(result.ok, 6);
 	});
 
 	it("chains .mapErr() on async result", async () => {
@@ -420,7 +420,7 @@ describe("AsyncResult", () => {
 		const result = await start
 			.map((n) => Promise.resolve(n))
 			.mapErr((e) => err("NEW", e.message));
-		if (result.isErr()) assertEquals(result.code, "NEW");
+		if (result.isErr()) assertEquals(result.err.code, "NEW");
 	});
 
 	it("chains .match() on async result", async () => {
@@ -441,7 +441,7 @@ describe("AsyncResult", () => {
 				seen = n;
 			});
 		assertEquals(seen, 10);
-		if (isOk(result)) assertEquals(result.value, 10);
+		if (isOk(result)) assertEquals(result.ok, 10);
 	});
 
 	it("chains .inspectErr() on async result", async () => {
@@ -490,7 +490,7 @@ describe("AsyncResult", () => {
 		const syncR = await asyncR;
 		// syncR has methods again
 		const mapped = syncR.map((n) => n + 1);
-		if (isOk(mapped)) assertEquals(mapped.value, 11);
+		if (isOk(mapped)) assertEquals(mapped.ok, 11);
 	});
 
 	it("preserves async poison through the chain", async () => {
@@ -500,7 +500,7 @@ describe("AsyncResult", () => {
 			.map((n) => `${n}`); // still AsyncResult
 		assertInstanceOf(result, Promise);
 		const resolved = await result;
-		if (isOk(resolved)) assertEquals(resolved.value, "11");
+		if (isOk(resolved)) assertEquals(resolved.ok, "11");
 	});
 
 	it("error flows through async chain to match", async () => {
@@ -525,7 +525,7 @@ describe("AsyncResult", () => {
 			.mapErr({
 				NOT_FOUND: () => ok("default"),
 			});
-		if (isOk(result)) assertEquals(result.value, "default");
+		if (isOk(result)) assertEquals(result.ok, "default");
 	});
 });
 
@@ -574,6 +574,6 @@ describe("end-to-end method chaining", () => {
 			.map((id) => fetchUser(id))
 			.map((name) => name.toUpperCase());
 
-		if (isOk(result)) assertEquals(result.value, "USER-123");
+		if (isOk(result)) assertEquals(result.ok, "USER-123");
 	});
 });

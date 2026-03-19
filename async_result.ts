@@ -6,7 +6,7 @@
  * await it to get back a sync Result with all its methods.
  */
 
-import type { Err, Result } from "./result.ts";
+import type { Result, ResultErr } from "./result.ts";
 import type {
 	HandlerErr,
 	HandlerOk,
@@ -41,11 +41,11 @@ export type AsyncResult<T, E extends string> = PromiseLike<Result<T, E>> & {
 
 	// mapErr - function form overloads
 	mapErr<T2, E2 extends string>(
-		fn: (e: Err<E>) => Result<T2, E2>,
+		fn: (e: ResultErr<E>) => Result<T2, E2>,
 	): AsyncResult<T | T2, E2>;
-	mapErr<U>(fn: (e: Err<E>) => U): AsyncResult<T | U, never>;
+	mapErr<U>(fn: (e: ResultErr<E>) => U): AsyncResult<T | U, never>;
 	// mapErr - handler form
-	mapErr<H extends { [K in E]?: (e: Err<K>) => any }>(
+	mapErr<H extends { [K in E]?: (e: ResultErr<K>) => any }>(
 		handlers: H,
 	): AsyncResult<
 		T | HandlerOk<InferHandlerReturns<H>>,
@@ -55,12 +55,12 @@ export type AsyncResult<T, E extends string> = PromiseLike<Result<T, E>> & {
 	// match - terminal, returns Promise
 	match<A, B>(handlers: {
 		ok: (value: T) => A;
-		err: (e: Err<E>) => B;
+		err: (e: ResultErr<E>) => B;
 	}): Promise<A | B>;
 
 	// inspect / inspectErr - always async
 	inspect(fn: (value: T) => any): AsyncResult<T, E>;
-	inspectErr(fn: (e: Err<E>) => any): AsyncResult<T, E>;
+	inspectErr(fn: (e: ResultErr<E>) => any): AsyncResult<T, E>;
 
 	// unwrap - terminal, returns Promise
 	unwrap(): Promise<T | undefined>;

@@ -2,6 +2,7 @@ import type {
 	And,
 	AnyResult,
 	Check,
+	InferErrObj,
 	InferFail,
 	InferOk,
 	Match,
@@ -13,7 +14,7 @@ import type { Result } from "../result.ts";
 type MatchOperator = <R extends AnyResult, OkReturn, ErrReturn>(
 	handlers: {
 		ok: (value: InferOk<R>) => OkReturn;
-		err: (err: Extract<Awaited<R>, { _tag: "Err" }>) => ErrReturn;
+		err: (err: InferErrObj<R>) => ErrReturn;
 	},
 ) => (
 	result: R,

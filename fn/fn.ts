@@ -105,7 +105,7 @@ async function awaitAndUnwrap(
 		return { done: true, value: resolved };
 	}
 	const unwrapped = isResult(resolved) && isOk(resolved)
-		? resolved.value
+		? resolved.ok
 		: resolved;
 	return { done: false, value: unwrapped };
 }
@@ -135,13 +135,13 @@ function runGenerator(
 			if (isErr(yielded)) return yielded;
 
 			// Ok with Promise value, transition to async
-			if (isOk(yielded) && yielded.value instanceof Promise) {
+			if (isOk(yielded) && yielded.ok instanceof Promise) {
 				return asyncResult(
-					runGeneratorAsync(gen, yielded.value, deps),
+					runGeneratorAsync(gen, yielded.ok, deps),
 				);
 			}
 
-			result = gen.next(isOk(yielded) ? yielded.value : yielded);
+			result = gen.next(isOk(yielded) ? yielded.ok : yielded);
 			continue;
 		}
 
@@ -179,14 +179,14 @@ async function runGeneratorAsync(
 		if (isResult(yielded)) {
 			if (isErr(yielded)) return yielded;
 
-			if (isOk(yielded) && yielded.value instanceof Promise) {
-				const inner = await awaitAndUnwrap(yielded.value);
+			if (isOk(yielded) && yielded.ok instanceof Promise) {
+				const inner = await awaitAndUnwrap(yielded.ok);
 				if (inner.done) return inner.value;
 				result = gen.next(inner.value);
 				continue;
 			}
 
-			result = gen.next(isOk(yielded) ? yielded.value : yielded);
+			result = gen.next(isOk(yielded) ? yielded.ok : yielded);
 			continue;
 		}
 

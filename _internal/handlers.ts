@@ -19,10 +19,10 @@ import { createFn } from "../fn/fn.ts";
  * Core map logic: transform an Ok value, handling Result flattening,
  * Promise→AsyncResult conversion, and Panic on sync throw.
  */
-export function handleMap(value: any, fn: (value: any) => any): any {
+export function handleMap(okValue: any, fn: (value: any) => any): any {
 	let mapped: any;
 	try {
-		mapped = fn(value);
+		mapped = fn(okValue);
 	} catch (cause) {
 		throw new Panic(
 			"map() callback threw — use fromThrowable() for unsafe code",
@@ -48,15 +48,16 @@ export function handleMapErr(
 	errResult: Result<any, any>,
 	fnOrHandlers: any,
 ): any {
+	const errObj = (errResult as any).err;
 	let mapped: any;
 	try {
 		if (typeof fnOrHandlers === "function") {
-			mapped = fnOrHandlers(errResult);
+			mapped = fnOrHandlers(errObj);
 		} else {
 			// Handler object
-			const handler = fnOrHandlers[(errResult as any).code];
+			const handler = fnOrHandlers[errObj.code];
 			if (handler) {
-				mapped = handler(errResult);
+				mapped = handler(errObj);
 			} else {
 				return errResult; // Unhandled code passes through
 			}
@@ -88,9 +89,9 @@ export function handleMatch(
 ): any {
 	try {
 		if (result._tag === "Ok") {
-			return handlers.ok((result as any).value);
+			return handlers.ok((result as any).ok);
 		} else {
-			return handlers.err(result);
+			return handlers.err((result as any).err);
 		}
 	} catch (cause) {
 		throw new Panic(
@@ -110,7 +111,9 @@ export function handleInspect(
 	fn: (value: any) => any,
 ): any {
 	try {
-		const effect = fn(result._tag === "Ok" ? (result as any).value : result);
+		const effect = fn(
+			result._tag === "Ok" ? (result as any).ok : (result as any).err,
+		);
 		if (effect instanceof Promise) {
 			return asyncResult(
 				effect.then(() => result, () => result) as Promise<any>,

@@ -2,17 +2,18 @@ import type {
 	And,
 	AnyResult,
 	Check,
+	InferErrObj,
 	InferFail,
 	InferOk,
 	Match,
 } from "../_internal/types.ts";
 import { handleMapErr } from "../_internal/handlers.ts";
-import { type Err, isOk, type Result } from "../result.ts";
+import { isOk, type Result, type ResultErr } from "../result.ts";
 import type { AsyncResult } from "../async_result.ts";
 import { asyncResult } from "../async_result.ts";
 
 type ErrHandlers<E extends string, U> = {
-	[K in E]?: (err: Err<K>) => U;
+	[K in E]?: (err: ResultErr<K>) => U;
 };
 
 type InferHandlerReturn<H> = H extends ErrHandlers<any, infer U> ? U
@@ -82,7 +83,7 @@ type MapErrOperator = {
 	]>;
 	// Function overload
 	<R extends AnyResult, U>(
-		fn: (err: Extract<Awaited<R>, { _tag: "Err" }>) => U,
+		fn: (err: InferErrObj<R>) => U,
 	): (
 		result: R,
 	) => Match<[

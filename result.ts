@@ -12,37 +12,53 @@ import {
 import type { AsyncResult } from "./async_result.ts";
 
 // ============================================================================
+// Error Object
+// ============================================================================
+
+/**
+ * A structured error object with a typed `code`, a `message`, and an optional
+ * `cause`. Error codes are string literals tracked by the type system.
+ *
+ * @typeParam C - The error code (a string literal or union of string literals)
+ */
+export type ResultErr<C extends string> = {
+	readonly code: C;
+	readonly message: string;
+	readonly cause?: unknown;
+};
+
+// ============================================================================
 // Data Types (structural shapes without methods)
 // ============================================================================
 
 /**
  * A successful Result containing a value of type `T`.
  *
- * Plain object with `{ _tag: "Ok", value }`. Implements the iterable protocol
+ * Has `{ _tag: "Ok", ok: T, err: null }`. Implements the iterable protocol
  * so `yield*` in generator functions unwraps the value.
  *
  * @typeParam T - The type of the success value
  */
 export type Ok<T> = {
 	readonly _tag: "Ok";
-	readonly value: T;
+	readonly ok: T;
+	readonly err: null;
 	[Symbol.iterator](): Generator<never, Awaited<T>, unknown>;
 };
 
 /**
- * An error Result containing a typed `code`, a `message`, and an optional `cause`.
+ * An error Result containing a structured error object.
  *
- * Plain object with `{ _tag: "Err", code, message, cause }`. Error codes are
- * string literals tracked by the type system. Implements the iterable protocol
- * so `yield*` in generator functions short-circuits on error.
+ * Has `{ _tag: "Err", ok: null, err: { code, message, cause } }`. Error codes
+ * are string literals tracked by the type system. Implements the iterable
+ * protocol so `yield*` in generator functions short-circuits on error.
  *
  * @typeParam C - The error code (a string literal or union of string literals)
  */
 export type Err<C extends string> = {
 	readonly _tag: "Err";
-	readonly code: C;
-	readonly message: string;
-	readonly cause?: unknown;
+	readonly ok: null;
+	readonly err: ResultErr<C>;
 	[Symbol.iterator](): Generator<Err<C>, never, unknown>;
 };
 
@@ -81,12 +97,12 @@ export interface ResultMethods<T, E extends string> {
 
 	/** Transform error into a new Result. */
 	mapErr<T2, E2 extends string>(
-		fn: (e: Err<E>) => Result<T2, E2>,
+		fn: (e: ResultErr<E>) => Result<T2, E2>,
 	): Result<T | T2, E2>;
 	/** Recover from error with a plain value. */
-	mapErr<U>(fn: (e: Err<E>) => U): Result<T | U, never>;
+	mapErr<U>(fn: (e: ResultErr<E>) => U): Result<T | U, never>;
 	/** Handle specific error codes with a handler object. */
-	mapErr<H extends { [K in E]?: (e: Err<K>) => any }>(
+	mapErr<H extends { [K in E]?: (e: ResultErr<K>) => any }>(
 		handlers: H,
 	): Result<
 		T | HandlerOk<InferHandlerReturns<H>>,
@@ -98,7 +114,7 @@ export interface ResultMethods<T, E extends string> {
 	/** Pattern match both cases and leave the Result world. */
 	match<A, B>(handlers: {
 		ok: (value: T) => A;
-		err: (e: Err<E>) => B;
+		err: (e: ResultErr<E>) => B;
 	}): A | B;
 
 	// -- inspect --
@@ -111,11 +127,11 @@ export interface ResultMethods<T, E extends string> {
 	inspect(fn: (value: T) => unknown): Result<T, E>;
 
 	/** Side effect on error. Errors swallowed. Returns self. */
-	inspectErr(fn: (e: Err<E>) => void): Result<T, E>;
+	inspectErr(fn: (e: ResultErr<E>) => void): Result<T, E>;
 	/** Side effect on error (async callback → AsyncResult). */
-	inspectErr(fn: (e: Err<E>) => Promise<any>): AsyncResult<T, E>;
+	inspectErr(fn: (e: ResultErr<E>) => Promise<any>): AsyncResult<T, E>;
 	/** Side effect on error (any return). */
-	inspectErr(fn: (e: Err<E>) => unknown): Result<T, E>;
+	inspectErr(fn: (e: ResultErr<E>) => unknown): Result<T, E>;
 
 	// -- unwrap --
 
@@ -132,8 +148,19 @@ export interface ResultMethods<T, E extends string> {
 /**
  * A discriminated union of `Ok<T>` and `Err<E>` with chainable methods.
  *
- * Either a success value or a structured error. Use `.isOk()` / `.isErr()`
- * to narrow, and `.map()`, `.mapErr()`, `.match()` etc. to transform.
+ * Either a success value or a structured error. Supports destructuring:
+ *
+ * ```ts
+ * const { ok, err } = myFunc();
+ * if (err) {
+ *   // err: { code: ..., message: string, cause?: unknown }
+ * } else {
+ *   // ok: T
+ * }
+ * ```
+ *
+ * Also supports `.isOk()` / `.isErr()` type guards, and `.map()`, `.mapErr()`,
+ * `.match()` etc. for transformation.
  *
  * @typeParam T - The type of the success value
  * @typeParam E - Error code(s) as string literal(s) (defaults to `never`)
@@ -150,7 +177,8 @@ export type { AsyncResult } from "./async_result.ts";
 // ============================================================================
 
 /**
- * Creates a successful Result: `{ _tag: "Ok", value }` with chainable methods.
+ * Creates a successful Result: `{ ok: value, err: null }` with chainable
+ * methods.
  *
  * @example
  * ```ts
@@ -161,7 +189,8 @@ export type { AsyncResult } from "./async_result.ts";
 export const ok = <T>(value: T): Result<T, never> => {
 	const self: any = {
 		_tag: "Ok" as const,
-		value,
+		ok: value,
+		err: null,
 
 		// --- Type guards ---
 		isOk: () => true,
@@ -169,7 +198,7 @@ export const ok = <T>(value: T): Result<T, never> => {
 
 		// --- map ---
 		map(fn: (value: T) => any): any {
-			return handleMap(self.value, fn);
+			return handleMap(self.ok, fn);
 		},
 
 		// --- mapErr (no-op on Ok) ---
@@ -194,10 +223,10 @@ export const ok = <T>(value: T): Result<T, never> => {
 
 		// --- unwrap ---
 		unwrap(): T {
-			return self.value;
+			return self.ok;
 		},
 		unwrapOr(_d: any): T {
-			return self.value;
+			return self.ok;
 		},
 
 		// --- Iterable for yield* ---
@@ -214,7 +243,7 @@ export const ok = <T>(value: T): Result<T, never> => {
 };
 
 /**
- * Creates an error Result: `{ _tag: "Err", code, message, cause }` with
+ * Creates an error Result: `{ ok: null, err: { code, message, cause } }` with
  * chainable methods.
  *
  * The `code` is a string literal tracked by the type system.
@@ -231,11 +260,11 @@ export const err = <C extends string>(
 	message: string,
 	cause?: unknown,
 ): Result<never, C> => {
+	const errObj: ResultErr<C> = { code, message, cause };
 	const self: any = {
 		_tag: "Err" as const,
-		code,
-		message,
-		cause,
+		ok: null,
+		err: errObj,
 
 		// --- Type guards ---
 		isOk: () => false,

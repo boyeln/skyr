@@ -28,7 +28,7 @@ describe("inject()", () => {
 		);
 
 		const result = await Promise.resolve(myFn());
-		if (isOk(result)) assertEquals(result.value, "result: SELECT 1");
+		if (isOk(result)) assertEquals(result.ok, "result: SELECT 1");
 	});
 
 	it("after all dependencies are injected, the function is callable", async () => {
@@ -47,7 +47,7 @@ describe("inject()", () => {
 		);
 
 		const result = await Promise.resolve(myFn());
-		if (isOk(result)) assertEquals(result.value, "done");
+		if (isOk(result)) assertEquals(result.ok, "done");
 	});
 
 	it("supports incremental injection", async () => {
@@ -68,7 +68,7 @@ describe("inject()", () => {
 		);
 
 		const result = await Promise.resolve(myFn());
-		if (isOk(result)) assertEquals(result.value, "done");
+		if (isOk(result)) assertEquals(result.ok, "done");
 	});
 
 	it("throws runtime Error with specific message when calling with missing dependencies", () => {
@@ -175,7 +175,7 @@ describe("nested fn() with use()", () => {
 		const result = await Promise.resolve(parentFn());
 		if (isOk(result)) {
 			assertEquals(
-				result.value,
+				result.ok,
 				"result: SELECT * FROM users WHERE id = 123",
 			);
 		}
@@ -195,7 +195,7 @@ describe("nested fn() with use()", () => {
 
 		const parentFn = pipe(ParentFn, inject());
 		const result = await Promise.resolve(parentFn());
-		if (isErr(result)) assertEquals(result.code, "CHILD_ERR");
+		if (isErr(result)) assertEquals(result.err.code, "CHILD_ERR");
 	});
 
 	it("three levels of nesting share dependencies", async () => {
@@ -226,7 +226,7 @@ describe("nested fn() with use()", () => {
 		const result = await Promise.resolve(level1());
 		if (isOk(result)) {
 			assertEquals(
-				result.value,
+				result.ok,
 				"result: fetched: https://example.com",
 			);
 		}
@@ -254,8 +254,8 @@ describe("nested fn() with use()", () => {
 		const parentFn = pipe(ParentFn, inject(counterImpl));
 		const result = await Promise.resolve(parentFn());
 		if (isOk(result)) {
-			assertEquals(result.value.parentCount, 1);
-			assertEquals(result.value.childCount, 2);
+			assertEquals(result.ok.parentCount, 1);
+			assertEquals(result.ok.childCount, 2);
 		}
 	});
 
@@ -274,7 +274,7 @@ describe("nested fn() with use()", () => {
 
 		const parentFn = pipe(ParentFn, inject());
 		const result = await Promise.resolve(parentFn());
-		if (isErr(result)) assertEquals(result.code, "CHILD_FAILED");
+		if (isErr(result)) assertEquals(result.err.code, "CHILD_FAILED");
 		assertEquals(reachedAfterChild, false);
 	});
 });

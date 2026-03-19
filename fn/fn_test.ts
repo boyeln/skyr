@@ -43,10 +43,10 @@ describe("fn() with regular functions", () => {
 		});
 
 		const okResult = validateAge(25);
-		if (isOk(okResult)) assertEquals(okResult.value, 25);
+		if (isOk(okResult)) assertEquals(okResult.ok, 25);
 
 		const errResult = validateAge(-1);
-		if (isErr(errResult)) assertEquals(errResult.code, "NEGATIVE");
+		if (isErr(errResult)) assertEquals(errResult.err.code, "NEGATIVE");
 	});
 });
 
@@ -63,7 +63,7 @@ describe("fn() with generator functions", () => {
 
 		const injected = pipe(myFn, inject());
 		const result = await Promise.resolve(injected());
-		if (isOk(result)) assertEquals(result.value, 84);
+		if (isOk(result)) assertEquals(result.ok, 84);
 	});
 
 	it("yield* on Err short-circuits the generator", async () => {
@@ -78,7 +78,7 @@ describe("fn() with generator functions", () => {
 		const injected = pipe(myFn, inject());
 		const result = await Promise.resolve(injected());
 		assertEquals(reachedEnd, false);
-		if (isErr(result)) assertEquals(result.code, "EARLY_EXIT");
+		if (isErr(result)) assertEquals(result.err.code, "EARLY_EXIT");
 	});
 
 	it("error types accumulate across multiple yield* calls", async () => {
@@ -101,10 +101,10 @@ describe("fn() with generator functions", () => {
 		const injected = pipe(combined, inject());
 
 		const okResult = await Promise.resolve(injected(50));
-		if (isOk(okResult)) assertEquals(okResult.value, 50);
+		if (isOk(okResult)) assertEquals(okResult.ok, 50);
 
 		const errResult = await Promise.resolve(injected(-1));
-		if (isErr(errResult)) assertEquals(errResult.code, "NEGATIVE");
+		if (isErr(errResult)) assertEquals(errResult.err.code, "NEGATIVE");
 	});
 
 	it("works with async results via yield*", async () => {
@@ -115,7 +115,7 @@ describe("fn() with generator functions", () => {
 
 		const injected = pipe(myFn, inject());
 		const result = await Promise.resolve(injected());
-		if (isOk(result)) assertEquals(result.value, 42);
+		if (isOk(result)) assertEquals(result.ok, 42);
 	});
 
 	it("short-circuits on failure mid-way through multiple yields", async () => {
@@ -134,7 +134,7 @@ describe("fn() with generator functions", () => {
 
 		const injected = pipe(myFn, inject());
 		const result = await Promise.resolve(injected());
-		if (isErr(result)) assertEquals(result.code, "STOP");
+		if (isErr(result)) assertEquals(result.err.code, "STOP");
 		assertEquals(log, ["before first", "after first"]);
 	});
 
@@ -147,7 +147,7 @@ describe("fn() with generator functions", () => {
 
 		const injected = pipe(myFn, inject());
 		const result = await Promise.resolve(injected());
-		if (isOk(result)) assertEquals(result.value, 30);
+		if (isOk(result)) assertEquals(result.ok, 30);
 	});
 
 	it("dependency-free generators are callable directly without pipe/inject", async () => {
@@ -159,7 +159,7 @@ describe("fn() with generator functions", () => {
 
 		// No pipe(add, inject()) needed - no deps means directly callable
 		const result = await Promise.resolve(add(3, 4));
-		if (isOk(result)) assertEquals(result.value, 7);
+		if (isOk(result)) assertEquals(result.ok, 7);
 	});
 
 	it("dependency-free generator short-circuits without pipe/inject", async () => {
@@ -169,7 +169,7 @@ describe("fn() with generator functions", () => {
 		});
 
 		const result = await Promise.resolve(myFn());
-		if (isErr(result)) assertEquals(result.code, "NOPE");
+		if (isErr(result)) assertEquals(result.err.code, "NOPE");
 	});
 
 	it("handles a rejected promise as UNKNOWN_ERR", async () => {
@@ -182,7 +182,7 @@ describe("fn() with generator functions", () => {
 
 		const result = await myFn();
 		assertEquals(isErr(result), true);
-		if (isErr(result)) assertEquals(result.code, "UNKNOWN_ERR");
+		if (isErr(result)) assertEquals(result.err.code, "UNKNOWN_ERR");
 	});
 
 	it("short-circuits on error after an async operation", async () => {
@@ -199,7 +199,7 @@ describe("fn() with generator functions", () => {
 
 		const result = await myFn();
 		assertEquals(isErr(result), true);
-		if (isErr(result)) assertEquals(result.code, "FAIL");
+		if (isErr(result)) assertEquals(result.err.code, "FAIL");
 		assertEquals(log, ["before async", "after async"]);
 	});
 
@@ -213,7 +213,7 @@ describe("fn() with generator functions", () => {
 
 		const result = await myFn();
 		assertEquals(isOk(result), true);
-		if (isOk(result)) assertEquals(result.value, 6);
+		if (isOk(result)) assertEquals(result.ok, 6);
 	});
 
 	it("composes async child fn with dependency via use()", async () => {
@@ -241,7 +241,7 @@ describe("fn() with generator functions", () => {
 		const result = await parent();
 		assertEquals(isOk(result), true);
 		if (isOk(result)) {
-			assertEquals(result.value, [
+			assertEquals(result.ok, [
 				"https://api.test/users",
 				"https://api.test/posts",
 			]);
@@ -269,6 +269,6 @@ describe("fn() with generator functions", () => {
 		);
 		const result = await parent();
 		assertEquals(isErr(result), true);
-		if (isErr(result)) assertEquals(result.code, "CHILD_ERR");
+		if (isErr(result)) assertEquals(result.err.code, "CHILD_ERR");
 	});
 });

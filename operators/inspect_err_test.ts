@@ -50,7 +50,7 @@ describe("inspectErr()", () => {
 			err("ERR", "msg"),
 			inspectErr(() => Promise.reject(new Error("async fail"))),
 		);
-		if (isErr(result)) assertEquals(result.code, "ERR");
+		if (isErr(result)) assertEquals(result.err.code, "ERR");
 	});
 
 	it("works with Promise<Result> input", async () => {
