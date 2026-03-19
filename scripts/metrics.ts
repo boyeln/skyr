@@ -82,14 +82,11 @@ function parseCoverage(output: string): CoverageReport {
 	const files: FileCoverage[] = [];
 	for (const line of lines) {
 		const parts = line.split("|").map((s) => s.trim()).filter(Boolean);
-		if (
-			parts.length !== 3 || parts[0] === "File" ||
-			parts[0].startsWith("-")
-		) {
-			continue;
-		}
+		if (parts[0] === "File" || parts[0]?.startsWith("-")) continue;
+		// Support both 3-column (Branch, Line) and 4-column (Branch, Function, Line) formats
+		if (parts.length !== 3 && parts.length !== 4) continue;
 		const branch = parseFloat(parts[1]);
-		const linePct = parseFloat(parts[2]);
+		const linePct = parseFloat(parts[parts.length - 1]);
 		if (isNaN(branch) || isNaN(linePct)) continue;
 		files.push({ file: parts[0], branch, line: linePct });
 	}
