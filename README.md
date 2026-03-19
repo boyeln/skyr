@@ -31,27 +31,28 @@ compose.
 ```typescript
 import * as R from "@thefridge/skyr";
 
-function validateEmail(email: string) {
-	if (!email.includes("@")) {
+function validateEmail(input: string) {
+	if (!input.includes("@")) {
 		return R.err("INVALID_EMAIL", "Email must contain @");
 	}
-	return R.ok(email);
+	return R.ok(input);
 }
 
-const result = validateEmail("user@example.com");
+const { ok: email, err } = validateEmail("user@example.com");
 
-if (result.err) {
-	console.log(result.err.code); // "INVALID_EMAIL"
-	console.log(result.err.message); // "Email must contain @"
+if (err) {
+	console.log(err.code); // "INVALID_EMAIL"
+	console.log(err.message); // "Email must contain @"
 } else {
-	console.log(result.ok); // "user@example.com"
+	console.log(email); // "user@example.com"
 }
 ```
 
 Error codes are string literals tracked by the type system. TypeScript knows
 exactly which errors a function can produce and autocompletes them for you.
 
-Results are plain objects you can destructure:
+Results are plain objects you can destructure. Rename `ok` to something
+meaningful at the call site:
 
 - `ok(value)` creates `{ ok: value, err: null, ... }`
 - `err(code, message, cause?)` creates
@@ -64,16 +65,17 @@ your IDE and see what's available.
 
 ### Destructuring
 
-Results support destructuring with TypeScript's narrowing:
+Results support destructuring with TypeScript's narrowing. Rename `ok` to give
+the value a descriptive name:
 
 ```typescript
-const { ok, err } = validateEmail("user@example.com");
+const { ok: email, err } = validateEmail("user@example.com");
 
 if (err) {
 	// err: { code: "INVALID_EMAIL"; message: string; cause?: unknown }
-	// ok: null
+	// email: null
 } else {
-	// ok: string
+	// email: string
 	// err: null
 }
 ```
@@ -122,10 +124,12 @@ covered later.
 Results have `.isOk()` and `.isErr()` methods that act as type guards:
 
 ```typescript
+const result = validateEmail(input);
+
 if (result.isOk()) {
-	result.ok; // T
+	result.ok; // string
 } else {
-	result.err.code; // E
+	result.err.code; // "INVALID_EMAIL"
 	result.err.message; // string
 	result.err.cause; // unknown | undefined
 }
@@ -548,9 +552,9 @@ dependency resolution from execution, keeping the control flow explicit.
 Destructure and check `err` to narrow:
 
 ```typescript
-const { ok, err } = result;
-if (err) { /* err: ResultErr<E>, ok: null */ }
-else { /* ok: T, err: null */ }
+const { ok: value, err } = result;
+if (err) { /* err: ResultErr<E>, value: null */ }
+else { /* value: T, err: null */ }
 ```
 
 ### Constructors
