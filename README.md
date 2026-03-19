@@ -31,36 +31,59 @@ compose.
 ```typescript
 import * as R from "@thefridge/skyr";
 
-function validateEmail(email: string) {
-	if (!email.includes("@")) {
+function validateEmail(input: string) {
+	if (!input.includes("@")) {
 		return R.err("INVALID_EMAIL", "Email must contain @");
 	}
-	return R.ok(email);
+	return R.ok(input);
 }
 
-const result = validateEmail("user@example.com");
+const { ok: email, err } = validateEmail("user@example.com");
 
-if (result.isOk()) {
-	console.log(result.value); // "user@example.com"
+if (err) {
+	console.log(err.code); // "INVALID_EMAIL"
+	console.log(err.message); // "Email must contain @"
 } else {
-	console.log(result.code); // "INVALID_EMAIL"
-	console.log(result.message); // "Email must contain @"
+	console.log(email); // "user@example.com"
 }
 ```
 
 Error codes are string literals tracked by the type system. TypeScript knows
 exactly which errors a function can produce and autocompletes them for you.
 
-Results are plain objects with a `_tag` discriminant:
+Results are plain objects you can destructure. Rename `ok` to something
+meaningful at the call site:
 
-- `ok(value)` creates `{ _tag: "Ok", value, ... }`
+- `ok(value)` creates `{ ok: value, err: null, ... }`
 - `err(code, message, cause?)` creates
-  `{ _tag: "Err", code, message, cause, ... }`
+  `{ ok: null, err: { code, message, cause }, ... }`
 
 The `cause` field is `undefined` when not provided.
 
 Every Result comes with methods for transforming and inspecting it. Type `.` in
 your IDE and see what's available.
+
+### Destructuring
+
+Results support destructuring with TypeScript's narrowing. Rename `ok` to give
+the value a descriptive name:
+
+```typescript
+const { ok: email, err } = validateEmail("user@example.com");
+
+if (err) {
+	// err: { code: "INVALID_EMAIL"; message: string; cause?: unknown }
+	// email: null
+} else {
+	// email: string
+	// err: null
+}
+```
+
+Checking `err` is the recommended pattern because it's safe for all value types.
+The `err` property is either `null` (falsy) or an object (always truthy), so
+there are no edge cases. Checking `ok` works for non-nullable, non-falsy types
+but can be unreliable if `T` includes `null`, `0`, `""`, or `false`.
 
 ### Letting TypeScript Infer Result Types
 
@@ -101,12 +124,14 @@ covered later.
 Results have `.isOk()` and `.isErr()` methods that act as type guards:
 
 ```typescript
+const result = validateEmail(input);
+
 if (result.isOk()) {
-	result.value; // T
+	result.ok; // string
 } else {
-	result.code; // E
-	result.message; // string
-	result.cause; // unknown | undefined
+	result.err.code; // "INVALID_EMAIL"
+	result.err.message; // string
+	result.err.cause; // unknown | undefined
 }
 ```
 
@@ -259,8 +284,8 @@ const result = fetchUser("123").mapErr({
 // Result<User, "AUTH_FAILED">
 ```
 
-Handlers get autocomplete for the available error codes. Each handler receives
-the narrowed `Err<"CODE">` and can:
+Handlers get autocomplete for the available error codes. Each handler receives a
+`ResultErr<"CODE">` object (with `code`, `message`, and `cause`) and can:
 
 - Return `ok(value)` or a **plain value** to recover (both treated as success)
 - Return `err(code, message)` to transform the error
@@ -278,6 +303,9 @@ const label = R.ok(42).match({
 });
 // "Got 42"
 ```
+
+The `ok` handler receives the unwrapped value `T`. The `err` handler receives a
+`ResultErr<E>` object (with `code`, `message`, and `cause`).
 
 If either handler returns a `Result`, the output is a `Result`. Otherwise it's a
 plain value. On `AsyncResult`, `.match()` returns a `Promise`.
@@ -514,6 +542,21 @@ dependency resolution from execution, keeping the control flow explicit.
 
 ## API Reference
 
+### Result Structure
+
+| Variant | Shape                                                      |
+| ------- | ---------------------------------------------------------- |
+| Ok      | `{ ok: T, err: null, _tag: "Ok" }`                         |
+| Err     | `{ ok: null, err: { code, message, cause }, _tag: "Err" }` |
+
+Destructure and check `err` to narrow:
+
+```typescript
+const { ok: value, err } = result;
+if (err) { /* err: ResultErr<E>, value: null */ }
+else { /* value: T, err: null */ }
+```
+
 ### Constructors
 
 | Function                     | Description                       |
@@ -577,6 +620,16 @@ operations (`.match()`, `.unwrap()`, `.unwrapOr()`) which return `Promise`.
 | Type    | Description                                                 |
 | ------- | ----------------------------------------------------------- |
 | `Panic` | Thrown on sync throw in operator callbacks; extends `Error` |
+
+### Types
+
+| Type                | Description                                     |
+| ------------------- | ----------------------------------------------- |
+| `Result<T, E>`      | Ok or Err with chainable methods                |
+| `Ok<T>`             | `{ ok: T, err: null, _tag: "Ok" }`              |
+| `Err<E>`            | `{ ok: null, err: ResultErr<E>, _tag: "Err" }`  |
+| `ResultErr<E>`      | `{ code: E, message: string, cause?: unknown }` |
+| `AsyncResult<T, E>` | Promise-wrapped Result with chainable methods   |
 
 ### Dependency Injection
 

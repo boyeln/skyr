@@ -20,8 +20,8 @@ describe("mapErr()", () => {
 				mapErr((e) => err("DEFAULT", e.message)),
 			);
 			if (isErr(result)) {
-				assertEquals(result.code, "DEFAULT");
-				assertEquals(result.message, "User not found");
+				assertEquals(result.err.code, "DEFAULT");
+				assertEquals(result.err.message, "User not found");
 			}
 		});
 
@@ -35,7 +35,7 @@ describe("mapErr()", () => {
 				}),
 			);
 			assertEquals(called, false);
-			if (isOk(result)) assertEquals(result.value, 42);
+			if (isOk(result)) assertEquals(result.ok, 42);
 		});
 
 		it("recovers with ok()", () => {
@@ -43,7 +43,7 @@ describe("mapErr()", () => {
 				err("ERR", "msg") as Result<number, "ERR">,
 				mapErr(() => ok(0)),
 			);
-			if (isOk(result)) assertEquals(result.value, 0);
+			if (isOk(result)) assertEquals(result.ok, 0);
 		});
 
 		it("recovers with a plain value (treated as ok)", () => {
@@ -51,7 +51,7 @@ describe("mapErr()", () => {
 				err("ERR", "msg") as Result<number, "ERR">,
 				mapErr(() => 0),
 			);
-			if (isOk(result)) assertEquals(result.value, 0);
+			if (isOk(result)) assertEquals(result.ok, 0);
 		});
 
 		it("type: replaces error type based on callback return", () => {
@@ -86,7 +86,7 @@ describe("mapErr()", () => {
 					NOT_FOUND: () => ok("default"),
 				}),
 			);
-			if (isOk(result)) assertEquals(result.value, "default");
+			if (isOk(result)) assertEquals(result.ok, "default");
 		});
 
 		it("passes through unhandled error codes unchanged", () => {
@@ -99,7 +99,7 @@ describe("mapErr()", () => {
 					NOT_FOUND: () => ok("default"),
 				}),
 			);
-			if (isErr(result)) assertEquals(result.code, "TIMEOUT");
+			if (isErr(result)) assertEquals(result.err.code, "TIMEOUT");
 		});
 
 		it("type: handled codes are removed, unhandled remain", () => {
@@ -123,7 +123,7 @@ describe("mapErr()", () => {
 				err("ERR", "msg") as Result<number, "ERR">,
 				mapErr({ ERR: () => ok(0) }),
 			);
-			if (isOk(result)) assertEquals(result.value, 0);
+			if (isOk(result)) assertEquals(result.ok, 0);
 		});
 
 		it("handler can recover with a plain value", () => {
@@ -131,7 +131,7 @@ describe("mapErr()", () => {
 				err("ERR", "msg") as Result<number, "ERR">,
 				mapErr({ ERR: () => 0 }),
 			);
-			if (isOk(result)) assertEquals(result.value, 0);
+			if (isOk(result)) assertEquals(result.ok, 0);
 		});
 
 		it("handler can transform to a different error", () => {
@@ -144,7 +144,7 @@ describe("mapErr()", () => {
 					NOT_FOUND: () => err("GONE", "permanently gone"),
 				}),
 			);
-			if (isErr(result)) assertEquals(result.code, "GONE");
+			if (isErr(result)) assertEquals(result.err.code, "GONE");
 		});
 
 		it("handler receives the narrowed Err", () => {
@@ -173,7 +173,7 @@ describe("mapErr()", () => {
 				),
 				mapErr(() => ok(0)),
 			);
-			if (isOk(result)) assertEquals(result.value, 0);
+			if (isOk(result)) assertEquals(result.ok, 0);
 		});
 
 		it("handler object with Promise-returning handler", async () => {
@@ -183,7 +183,7 @@ describe("mapErr()", () => {
 					ERR: () => Promise.resolve(ok(99)),
 				}),
 			);
-			if (isOk(result)) assertEquals(result.value, 99);
+			if (isOk(result)) assertEquals(result.ok, 99);
 		});
 
 		it("function form captures rejected Promise as UNKNOWN_ERR", async () => {
@@ -191,7 +191,7 @@ describe("mapErr()", () => {
 				err("ERR", "msg") as Result<number, "ERR">,
 				mapErr(() => Promise.reject(new Error("boom"))),
 			);
-			if (isErr(result)) assertEquals(result.code, "UNKNOWN_ERR");
+			if (isErr(result)) assertEquals(result.err.code, "UNKNOWN_ERR");
 		});
 	});
 

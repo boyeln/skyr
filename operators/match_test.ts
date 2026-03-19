@@ -48,7 +48,7 @@ describe("match()", () => {
 		assertType<
 			IsExact<typeof result, Result<string, "MAPPED">>
 		>(true);
-		if (isOk(result)) assertEquals(result.value, "42");
+		if (isOk(result)) assertEquals(result.ok, "42");
 	});
 
 	describe("async", () => {
@@ -71,7 +71,7 @@ describe("match()", () => {
 					err: () => Promise.resolve(err("ERR", "msg")),
 				}),
 			);
-			if (isOk(result)) assertEquals(result.value, "42");
+			if (isOk(result)) assertEquals(result.ok, "42");
 		});
 
 		it("flattens Promise<Result> returned by err handler", async () => {
@@ -82,7 +82,7 @@ describe("match()", () => {
 					err: () => Promise.resolve(ok("recovered")),
 				}),
 			);
-			if (isOk(result)) assertEquals(result.value, "recovered");
+			if (isOk(result)) assertEquals(result.ok, "recovered");
 		});
 	});
 

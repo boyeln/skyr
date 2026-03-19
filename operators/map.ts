@@ -63,7 +63,7 @@ type MapOperator = <R extends AnyResult, U>(
 export const map: MapOperator = (fn) => (result): any => {
 	const handle = (r: Result<any, any>): any => {
 		if (isErr(r)) return r;
-		return handleMap(r.value, fn);
+		return handleMap(r.ok, fn);
 	};
 
 	if (result instanceof Promise) {

@@ -8,28 +8,29 @@ import { err, isErr, isOk, isResult, ok, type Result } from "./mod.ts";
 // =============================================================================
 
 describe("ok()", () => {
-	it("creates an object with _tag 'Ok' and the given value", () => {
+	it("creates an object with _tag 'Ok', ok value, and err null", () => {
 		const result = ok(42);
 		assertEquals(result._tag, "Ok");
-		// Narrow to access .value
+		// Narrow to access .ok
 		if (isOk(result)) {
-			assertEquals(result.value, 42);
+			assertEquals(result.ok, 42);
 		}
+		assertEquals(result.err, null);
 	});
 
 	it("works with different value types", () => {
 		const str = ok("hello");
-		if (isOk(str)) assertEquals(str.value, "hello");
+		if (isOk(str)) assertEquals(str.ok, "hello");
 
 		const nul = ok(null);
-		if (isOk(nul)) assertEquals(nul.value, null);
+		if (isOk(nul)) assertEquals(nul.ok, null);
 
 		const undef = ok(undefined);
-		if (isOk(undef)) assertEquals(undef.value, undefined);
+		if (isOk(undef)) assertEquals(undef.ok, undefined);
 
 		const obj = { a: 1 };
 		const wrapped = ok(obj);
-		if (isOk(wrapped)) assertStrictEquals(wrapped.value, obj);
+		if (isOk(wrapped)) assertStrictEquals(wrapped.ok, obj);
 	});
 
 	it("has type Result<T, never>", () => {
@@ -47,19 +48,20 @@ describe("ok()", () => {
 });
 
 describe("err()", () => {
-	it("creates an object with _tag 'Err', code, and message", () => {
+	it("creates an object with _tag 'Err', ok null, and err object", () => {
 		const result = err("NOT_FOUND", "User not found");
 		assertEquals(result._tag, "Err");
+		assertEquals(result.ok, null);
 		if (isErr(result)) {
-			assertEquals(result.code, "NOT_FOUND");
-			assertEquals(result.message, "User not found");
+			assertEquals(result.err.code, "NOT_FOUND");
+			assertEquals(result.err.message, "User not found");
 		}
 	});
 
 	it("has cause undefined when not provided", () => {
 		const result = err("ERR", "msg");
 		if (isErr(result)) {
-			assertEquals(result.cause, undefined);
+			assertEquals(result.err.cause, undefined);
 		}
 	});
 
@@ -67,7 +69,7 @@ describe("err()", () => {
 		const cause = new Error("original");
 		const result = err("ERR", "msg", cause);
 		if (isErr(result)) {
-			assertStrictEquals(result.cause, cause);
+			assertStrictEquals(result.err.cause, cause);
 		}
 	});
 
@@ -100,7 +102,7 @@ describe("isOk()", () => {
 		if (isOk(result)) {
 			// After narrowing, we have Ok data fields AND ResultMethods
 			assertEquals(result._tag, "Ok");
-			assertEquals(result.value, 42);
+			assertEquals(result.ok, 42);
 			// Methods still available after narrowing
 			assertEquals(typeof result.map, "function");
 		}
@@ -124,8 +126,8 @@ describe("isErr()", () => {
 		if (isErr(result)) {
 			// After narrowing, we have Err data fields AND ResultMethods
 			assertEquals(result._tag, "Err");
-			assertEquals(result.code, "NOT_FOUND");
-			assertEquals(result.message, "msg");
+			assertEquals(result.err.code, "NOT_FOUND");
+			assertEquals(result.err.message, "msg");
 			// Methods still available after narrowing
 			assertEquals(typeof result.mapErr, "function");
 		}
@@ -153,7 +155,7 @@ describe("isResult()", () => {
 	});
 
 	it("returns false for plain objects without _tag", () => {
-		assertEquals(isResult({ value: 1 }), false);
+		assertEquals(isResult({ ok: 1 }), false);
 		assertEquals(isResult({}), false);
 	});
 
@@ -163,9 +165,13 @@ describe("isResult()", () => {
 	});
 
 	it("returns true for objects that structurally match Results", () => {
-		assertEquals(isResult({ _tag: "Ok", value: 1 }), true);
+		assertEquals(isResult({ _tag: "Ok", ok: 1, err: null }), true);
 		assertEquals(
-			isResult({ _tag: "Err", code: "E", message: "m" }),
+			isResult({
+				_tag: "Err",
+				ok: null,
+				err: { code: "E", message: "m" },
+			}),
 			true,
 		);
 	});

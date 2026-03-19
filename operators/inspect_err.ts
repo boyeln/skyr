@@ -2,6 +2,7 @@ import type {
 	And,
 	AnyResult,
 	Check,
+	InferErrObj,
 	InferFail,
 	InferOk,
 	Match,
@@ -13,7 +14,7 @@ import type { AsyncResult } from "../async_result.ts";
 import { asyncResult } from "../async_result.ts";
 
 type InspectErrOperator = <R extends AnyResult, U>(
-	fn: (err: Extract<Awaited<R>, { _tag: "Err" }>) => U,
+	fn: (err: InferErrObj<R>) => U,
 ) => (
 	result: R,
 ) => Match<[

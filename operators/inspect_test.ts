@@ -39,7 +39,7 @@ describe("inspect()", () => {
 			ok(42),
 			inspect(() => 999),
 		);
-		if (isOk(result)) assertEquals(result.value, 42);
+		if (isOk(result)) assertEquals(result.ok, 42);
 	});
 
 	it("silently swallows sync throws, returning the original Result", () => {
@@ -58,7 +58,7 @@ describe("inspect()", () => {
 			ok(42),
 			inspect(() => Promise.reject(new Error("async fail"))),
 		);
-		if (isOk(result)) assertEquals(result.value, 42);
+		if (isOk(result)) assertEquals(result.ok, 42);
 	});
 
 	it("works with Promise<Result> input", async () => {
@@ -70,6 +70,6 @@ describe("inspect()", () => {
 			}),
 		);
 		assertEquals(captured, 42);
-		if (isOk(result)) assertEquals(result.value, 42);
+		if (isOk(result)) assertEquals(result.ok, 42);
 	});
 });

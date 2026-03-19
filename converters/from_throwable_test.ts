@@ -14,7 +14,7 @@ describe("fromThrowable()", () => {
 	describe("function overload", () => {
 		it("returns Ok with the return value on success", () => {
 			const result = fromThrowable(() => JSON.parse('{"a": 1}'));
-			if (isOk(result)) assertEquals(result.value, { a: 1 });
+			if (isOk(result)) assertEquals(result.ok, { a: 1 });
 		});
 
 		it("catches sync throw and returns Err with mapper", () => {
@@ -23,17 +23,17 @@ describe("fromThrowable()", () => {
 				(e) => err("PARSE_ERROR", "Invalid JSON", e),
 			);
 			if (isErr(result)) {
-				assertEquals(result.code, "PARSE_ERROR");
-				assertEquals(result.message, "Invalid JSON");
-				assertInstanceOf(result.cause, SyntaxError);
+				assertEquals(result.err.code, "PARSE_ERROR");
+				assertEquals(result.err.message, "Invalid JSON");
+				assertInstanceOf(result.err.cause, SyntaxError);
 			}
 		});
 
 		it("without mapper, caught error becomes UNKNOWN_ERR with cause", () => {
 			const result = fromThrowable(() => JSON.parse("bad"));
 			if (isErr(result)) {
-				assertEquals(result.code, "UNKNOWN_ERR");
-				assertInstanceOf(result.cause, SyntaxError);
+				assertEquals(result.err.code, "UNKNOWN_ERR");
+				assertInstanceOf(result.err.cause, SyntaxError);
 			}
 		});
 
@@ -58,7 +58,7 @@ describe("fromThrowable()", () => {
 	describe("promise overload", () => {
 		it("resolves to Ok with the resolved value", async () => {
 			const result = await fromThrowable(Promise.resolve(42));
-			if (isOk(result)) assertEquals(result.value, 42);
+			if (isOk(result)) assertEquals(result.ok, 42);
 		});
 
 		it("rejects to Err with mapper applied", async () => {
@@ -67,8 +67,8 @@ describe("fromThrowable()", () => {
 				(e) => err("FETCH_ERROR", "Request failed", e),
 			);
 			if (isErr(result)) {
-				assertEquals(result.code, "FETCH_ERROR");
-				assertInstanceOf(result.cause, Error);
+				assertEquals(result.err.code, "FETCH_ERROR");
+				assertInstanceOf(result.err.cause, Error);
 			}
 		});
 
@@ -76,8 +76,8 @@ describe("fromThrowable()", () => {
 			const error = new Error("boom");
 			const result = await fromThrowable(Promise.reject(error));
 			if (isErr(result)) {
-				assertEquals(result.code, "UNKNOWN_ERR");
-				assertEquals(result.cause, error);
+				assertEquals(result.err.code, "UNKNOWN_ERR");
+				assertEquals(result.err.cause, error);
 			}
 		});
 

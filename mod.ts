@@ -20,7 +20,7 @@
 
 // Core types and constructors
 export { err, isErr, isOk, isResult, ok } from "./result.ts";
-export type { Err, Ok, Result } from "./result.ts";
+export type { Err, Ok, Result, ResultErr } from "./result.ts";
 export type { AsyncResult } from "./async_result.ts";
 
 // Pipe

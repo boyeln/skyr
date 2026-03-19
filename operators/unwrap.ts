@@ -30,7 +30,7 @@ type UnwrapOperator = <R extends AnyResult>(
 export const unwrap: UnwrapOperator = (result: AnyResult): any => {
 	const handle = (r: Result<any, any>) => {
 		if (isOk(r)) {
-			return r.value;
+			return r.ok;
 		}
 		return undefined;
 	};

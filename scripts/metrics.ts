@@ -82,19 +82,21 @@ function parseCoverage(output: string): CoverageReport {
 	const files: FileCoverage[] = [];
 	for (const line of lines) {
 		const parts = line.split("|").map((s) => s.trim()).filter(Boolean);
-		if (
-			parts.length !== 3 || parts[0] === "File" ||
-			parts[0].startsWith("-")
-		) {
-			continue;
-		}
-		files.push({
-			file: parts[0],
-			branch: parseFloat(parts[1]),
-			line: parseFloat(parts[2]),
-		});
+		if (parts[0] === "File" || parts[0]?.startsWith("-")) continue;
+		// Support both 3-column (Branch, Line) and 4-column (Branch, Function, Line) formats
+		if (parts.length !== 3 && parts.length !== 4) continue;
+		const branch = parseFloat(parts[1]);
+		const linePct = parseFloat(parts[parts.length - 1]);
+		if (isNaN(branch) || isNaN(linePct)) continue;
+		files.push({ file: parts[0], branch, line: linePct });
 	}
-	const total = files.pop()!; // "All files" is the last row
+	// "All files" is the last row
+	const total = files.pop();
+	if (!total) {
+		throw new Error(
+			`Failed to parse coverage output. Raw output:\n${output}`,
+		);
+	}
 	return { total: { branch: total.branch, line: total.line }, files };
 }
 
@@ -118,9 +120,8 @@ function parseBenchmarks(output: string): BenchResult[] {
 console.error("Running metrics on current branch...");
 await run(["rm", "-rf", "coverage"]);
 await run(["deno", "test", "--coverage"]);
-const prCov = parseCoverage(
-	(await run(["deno", "coverage", "coverage"])).stdout,
-);
+const prCovRun = await run(["deno", "coverage", "coverage"]);
+const prCov = parseCoverage(prCovRun.stdout || prCovRun.stderr);
 const prBench = parseBenchmarks(
 	(await run(["deno", "bench", "--json"])).stdout,
 );
@@ -130,9 +131,8 @@ await run(["git", "fetch", "origin", "main"]);
 await run(["git", "checkout", "origin/main"]);
 await run(["rm", "-rf", "coverage"]);
 await run(["deno", "test", "--coverage"]);
-const mainCov = parseCoverage(
-	(await run(["deno", "coverage", "coverage"])).stdout,
-);
+const mainCovRun = await run(["deno", "coverage", "coverage"]);
+const mainCov = parseCoverage(mainCovRun.stdout || mainCovRun.stderr);
 const mainBench = parseBenchmarks(
 	(await run(["deno", "bench", "--json"])).stdout,
 );

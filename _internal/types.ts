@@ -1,4 +1,4 @@
-import type { Result } from "../result.ts";
+import type { Result, ResultErr } from "../result.ts";
 import type { AsyncResult } from "../async_result.ts";
 
 export type AnyResult<T = any, E extends string = any> =
@@ -20,6 +20,9 @@ export type InferOk<R> = [R] extends [InferableResult<infer T, any>] ? T
 export type InferFail<R> = [R] extends [InferableResult<any, infer E>] ? E
 	: [R] extends [AsyncResult<any, infer E>] ? E
 	: never;
+
+/** Infer the ResultErr object type from a Result-like type. */
+export type InferErrObj<R> = ResultErr<InferFail<R>>;
 
 export type Match<RuleList extends any[]> = RuleList extends
 	[infer First extends { if: boolean; return: any }, ...infer Rest]
@@ -56,12 +59,13 @@ export type Not<Condition extends boolean> = Condition extends true ? false
 
 /** Extract the Ok type from a handler return (plain value = recovery). */
 export type HandlerOk<R> = [R] extends [{ _tag: "Ok" | "Err" }]
-	? R extends { _tag: "Ok"; value: infer T } ? T : never
+	? R extends { _tag: "Ok"; ok: infer T } ? T : never
 	: R;
 
 /** Extract the Err codes from a handler return. */
 export type HandlerErr<R> = [R] extends [{ _tag: "Ok" | "Err" }]
-	? R extends { _tag: "Err"; code: infer E extends string } ? E : never
+	? R extends { _tag: "Err"; err: { code: infer E extends string } } ? E
+	: never
 	: never;
 
 /** Infer all return types from a handler object. */

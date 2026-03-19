@@ -69,7 +69,7 @@ describe("use()", () => {
 		);
 
 		const result = await Promise.resolve(myFn());
-		if (isOk(result)) assertEquals(result.value, "done");
+		if (isOk(result)) assertEquals(result.ok, "done");
 		assertEquals(messages, ["hello"]);
 	});
 

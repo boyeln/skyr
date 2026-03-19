@@ -12,7 +12,7 @@ describe("wrapThrowable()", () => {
 	it("wrapper returns Ok on successful call", () => {
 		const safeParse = wrapThrowable((s: string) => JSON.parse(s));
 		const result = safeParse('{"a": 1}');
-		if (isOk(result)) assertEquals(result.value, { a: 1 });
+		if (isOk(result)) assertEquals(result.ok, { a: 1 });
 	});
 
 	it("wrapper returns Err on thrown error, with mapper applied", () => {
@@ -22,15 +22,15 @@ describe("wrapThrowable()", () => {
 		);
 		const result = safeParse("not json");
 		if (isErr(result)) {
-			assertEquals(result.code, "PARSE_ERROR");
-			assertEquals(result.message, "Invalid JSON");
+			assertEquals(result.err.code, "PARSE_ERROR");
+			assertEquals(result.err.message, "Invalid JSON");
 		}
 	});
 
 	it("without mapper, errors become UNKNOWN_ERR", () => {
 		const safeParse = wrapThrowable((s: string) => JSON.parse(s));
 		const result = safeParse("bad");
-		if (isErr(result)) assertEquals(result.code, "UNKNOWN_ERR");
+		if (isErr(result)) assertEquals(result.err.code, "UNKNOWN_ERR");
 	});
 
 	it("type: wrapper preserves original function's parameter types", () => {

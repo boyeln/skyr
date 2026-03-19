@@ -17,7 +17,7 @@ describe("map()", () => {
 	describe("sync", () => {
 		it("transforms the ok value", () => {
 			const result = pipe(ok(5), map((n) => n * 2));
-			if (isOk(result)) assertEquals(result.value, 10);
+			if (isOk(result)) assertEquals(result.ok, 10);
 		});
 
 		it("skips the callback when result is an Err", () => {
@@ -30,7 +30,7 @@ describe("map()", () => {
 				}),
 			);
 			assertEquals(called, false);
-			if (isErr(result)) assertEquals(result.code, "ERR");
+			if (isErr(result)) assertEquals(result.err.code, "ERR");
 		});
 
 		it("type: maps Result<T, E> to Result<U, E>", () => {
@@ -45,7 +45,7 @@ describe("map()", () => {
 	describe("flattening", () => {
 		it("flattens when callback returns an Ok Result", () => {
 			const result = pipe(ok(5), map((n) => ok(String(n))));
-			if (isOk(result)) assertEquals(result.value, "5");
+			if (isOk(result)) assertEquals(result.ok, "5");
 		});
 
 		it("flattens when callback returns an Err Result", () => {
@@ -53,7 +53,7 @@ describe("map()", () => {
 				ok(5),
 				map(() => err("INNER", "inner error")),
 			);
-			if (isErr(result)) assertEquals(result.code, "INNER");
+			if (isErr(result)) assertEquals(result.err.code, "INNER");
 		});
 
 		it("type: flattening merges error types", () => {
@@ -77,7 +77,7 @@ describe("map()", () => {
 				>
 			>(true);
 			const awaited = await result;
-			if (isOk(awaited)) assertEquals(awaited.value, 10);
+			if (isOk(awaited)) assertEquals(awaited.ok, 10);
 		});
 
 		it("becomes async when input is a Promise<Result>", async () => {
@@ -89,7 +89,7 @@ describe("map()", () => {
 				IsExact<typeof result, AsyncResult<number, never>>
 			>(true);
 			const awaited = await result;
-			if (isOk(awaited)) assertEquals(awaited.value, 10);
+			if (isOk(awaited)) assertEquals(awaited.ok, 10);
 		});
 
 		it("converts rejected promise in callback to UNKNOWN_ERR", async () => {
@@ -98,7 +98,7 @@ describe("map()", () => {
 				map(() => Promise.reject(new Error("boom"))),
 			);
 			if (isErr(result)) {
-				assertEquals(result.code, "UNKNOWN_ERR");
+				assertEquals(result.err.code, "UNKNOWN_ERR");
 			}
 		});
 	});
